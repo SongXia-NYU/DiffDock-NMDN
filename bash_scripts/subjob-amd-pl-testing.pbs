@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+#SBATCH --job-name=AMD-test
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:mi50:1
+#SBATCH --cpus-per-task=6
+#SBATCH --time=4:00:00
+#SBATCH --mem=24GB
+#SBATCH --mail-type=END,FAIL,TIME_LIMIT
+#SBATCH --mail-user=songxia23@gmail.com
+
+module purge
+
+FOLDER_NAMES=$1
+
+SPECIFY=$2
+
+singularity exec \
+    --overlay ~/conda_envs/pytorch1.11-rocm4.5.2-25GB-500K.sqf:ro \
+    /scratch/work/public/hudson/images/rocm4.5.2-ubuntu20.04.3.sif \
+    bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-scoring_$SPECIFY.txt "
+
+singularity exec \
+    --overlay ~/conda_envs/pytorch1.11-rocm4.5.2-25GB-500K.sqf:ro \
+    /scratch/work/public/hudson/images/rocm4.5.2-ubuntu20.04.3.sif \
+    bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-docking_$SPECIFY.txt --only_predict "
+
+singularity exec \
+    --overlay ~/conda_envs/pytorch1.11-rocm4.5.2-25GB-500K.sqf:ro \
+    /scratch/work/public/hudson/images/rocm4.5.2-ubuntu20.04.3.sif \
+    bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-screening_$SPECIFY.txt --only_predict "

@@ -1,0 +1,9 @@
+--short_name=gba-diffdock
+--data_provider=protein_embedding[dataset_name=LIT-PCBA-D021-D022-GBA.polar.polar.implicit.mindist/part_*.pyg]
+--prot_embedding_root=/vast/sx801/geometries/LIT-PCBA-DiffDock/GBA/prot_polar.esm2_t33_650M_UR50D
+--prot_embed_use_chunks
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle
+--record_name=rank
+--record_name=confidence

@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+#SBATCH --job-name=NV-test
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=2
+#SBATCH --time=1:00:00
+#SBATCH --mem=6GB
+#SBATCH --mail-type=END,FAIL,TIME_LIMIT
+#SBATCH --mail-user=songxia23@gmail.com
+
+module purge
+
+ALL_ARGS=$*
+
+singularity exec --nv \
+            --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /scratch/sx801/data/AF-SwissProt-CAP-FRAG1-atom-GBSA-c10.sqf \
+            --overlay /scratch/sx801/data/AF-SwissProt-CAP-FRAG2-atom-GBSA-c10.sqf \
+            --overlay /scratch/sx801/data/AF-SwissProt-CAP-FRAG1-Martini-GBSA-c10.sqf \
+            --overlay /scratch/sx801/data/AF-SwissProt-CAP-FRAG2-Martini-GBSA-c10.sqf \
+            /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; python test.py --folder_names $ALL_ARGS "

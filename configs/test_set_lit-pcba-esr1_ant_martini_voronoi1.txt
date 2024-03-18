@@ -1,0 +1,5 @@
+--short_name=esr1_ant
+--data_provider=dummy[dataset_name=LIT-PCBA-ESR1_ant.prot.martini.lig.polarH.pyg]
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle

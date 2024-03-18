@@ -1,0 +1,8 @@
+--short_name=gba
+--data_provider=protein_embedding[dataset_name=LIT-PCBA-GBA.prot.implicit.lig.polarH.min_dist/chunk_*.pyg]
+--prot_embedding_root=/vast/sx801/single_pygs/LIT-PCBA-GBA_esm2_t33_650M_UR50D
+--prot_info_ds=LIT-PCBA-GBA.protinfo.implicit.pyg
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle
+--valid_batch_size=32

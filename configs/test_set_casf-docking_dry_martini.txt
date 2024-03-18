@@ -1,0 +1,6 @@
+--short_name=casf2016-docking
+--data_provider=dummy[dataset_name=casf-docking-dry-prot.martini-lig.polar.pyg]
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=ligand_file
+--record_name=protein_file

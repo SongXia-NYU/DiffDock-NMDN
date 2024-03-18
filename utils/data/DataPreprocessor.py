@@ -1,0 +1,17 @@
+from typing import Any, Union
+
+from utils.data.MyData import MyData
+from torch_geometric.data import HeteroData
+
+
+class DataPreprocessor:
+    def __init__(self, cfg: dict) -> None:
+        self.proc_lit_pcba = cfg["proc_lit_pcba"]
+
+    def __call__(self, data: Union[MyData, HeteroData], idx: int) -> Union[MyData, HeteroData]:
+        if self.proc_lit_pcba:
+            file_handle: str = data.file_handle
+            rank: int = data.rank.cpu().item()
+            file_handle_ranked = f"{file_handle}.rank{rank}"
+            data.file_handle_ranked = file_handle_ranked
+        return data

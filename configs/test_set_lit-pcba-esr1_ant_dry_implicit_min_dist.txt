@@ -1,0 +1,7 @@
+--short_name=esr1_ant
+--data_provider=protein_embedding[dataset_name=LIT-PCBA-ESR1_ant.prot.atom_pad.lig.polarH.pyg]
+--prot_embedding_root=/vast/sx801/single_pygs/LIT-PCBA-ESR1_ant_esm2_t33_650M_UR50D
+--prot_info_ds=LIT-PCBA-ESR1_ant.protinfo.implicit.pyg
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle

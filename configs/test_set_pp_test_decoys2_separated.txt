@@ -1,0 +1,9 @@
+--short_name=pp_test_decoys2_separated
+--data_provider=pp_embedding
+--dataset_name=prot_prot_test_decoy2_separated.intra.polar.polar.pyg
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=pdb
+--record_name=dockground2_combined_pdb
+--prot_embedding_root=/vast/sx801/geometries/ProtProt_Xuhang/decoy_2_separated.esm2_t33_650M_UR50D
+--prot_embed_use_chunks

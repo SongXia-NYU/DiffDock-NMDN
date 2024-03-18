@@ -1,0 +1,6 @@
+--short_name=PDBind2020
+--data_provider=dummy[dataset_name=PDBbind_v2020_water_10$6$6_09042022.pyg]
+--data_root=../dataProviders/data
+--record_name=sample_id
+--record_name=ligand_file
+--record_name=protein_file

@@ -1,0 +1,6 @@
+--short_name=casf2016-screening-ref
+--data_provider=vs_dummy[dataset_name=casf-screening-dry-prot.martini.lig.polarH-ref/*.pyg,ref=True]
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=ligand_file
+--record_name=protein_file

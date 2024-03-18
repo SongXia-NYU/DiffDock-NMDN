@@ -1,0 +1,15 @@
+#!/bin/bash
+#
+#SBATCH --job-name=exp{}
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:v100:1
+#SBATCH --cpus-per-task=4
+#SBATCH --time=36:00:00
+#SBATCH --mem=30GB
+
+module purge
+
+singularity exec --nv \
+            --overlay ~/conda_envs/pytorch1.9-cuda102-15GB-500K.ext3:ro \
+            /scratch/work/public/singularity/cuda11.0-cudnn8-devel-ubuntu18.04.sif \
+            bash -c "source /ext3/env.sh; export PYTHONPATH=../dataProviders:$PYTHONPATH; python active_learning.py --config_name config-exp{}.txt --select NUMBER --candidate BELOW_N_HEAVY --number 10000 --init_size 10000 --action_n_heavy '20 20 20 20 20 20 20 20 20' --init_n_heavy 20 --fixed_valid "

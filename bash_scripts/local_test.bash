@@ -1,0 +1,1 @@
+python test.py --folder_names 'exp_pl_005_run_2022-06-03_164656__676997' --explicit_ds_config 'configs/test_set_casf-scoring_wat.txt'

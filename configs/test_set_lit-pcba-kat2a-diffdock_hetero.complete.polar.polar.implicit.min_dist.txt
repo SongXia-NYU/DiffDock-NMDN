@@ -1,0 +1,14 @@
+--short_name=kat2a-diffdock
+--data_provider=protein_embedding[dataset_name=LIT-PCBA-D021-KAT2A.hetero.polar.polar.implicit.mindist/part_*.pyg]
+--prot_embedding_root=/vast/sx801/geometries/LIT-PCBA-DiffDock/KAT2A/prot_polar.esm2_t33_650M_UR50D
+--prot_embed_use_chunks
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle
+--record_name=rank
+--record_name=confidence
+--rmsd_csv=/vast/sx801/geometries/LIT-PCBA-DiffDock/KAT2A/rmsd_info/job_*.csv
+--atom_prop_ds=LIT-PCBA-KAT2A_ligmolprop_frag20sol_012_ens.allh.pyg
+--lig_identifier_src=file_handle_ranked
+--lig_identifier_dst=file_handle_ranked
+--proc_lit_pcba

@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+#SBATCH --job-name=PL-test
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:a100:1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=12:00:00
+#SBATCH --mem=40GB
+
+module purge
+
+FOLDER_NAMES=$1
+SPECIFY=dry_martini_102010
+WAT_REF=exp
+
+singularity exec --nv \
+            --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /scratch/sx801/data/casf-scoring-dry_martini_10\$20\$10.sqf \
+            --overlay /scratch/sx801/data/casf-scoring-dry_polarH_10\$10\$6.sqf \
+            /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-scoring_$SPECIFY.txt --overwrite_args configs/use_${WAT_REF}_water_ref_scoring.json --use_exist "
+
+singularity exec --nv \
+            --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /scratch/sx801/data/casf-docking-dry_martini_10\$20\$10.sqf \
+            --overlay /scratch/sx801/data/casf-docking-dry_polarH_10\$10\$6.sqf \
+            /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-docking_$SPECIFY.txt --only_predict --overwrite_args configs/use_${WAT_REF}_water_ref_docking.json --use_exist "
+
+SCREENING_CONFIG=configs/test_set_casf-screening_$SPECIFY.txt
+if true && [[ -f "$SCREENING_CONFIG" ]]; then
+  singularity exec --nv \
+              --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
+              /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+              bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config $SCREENING_CONFIG --only_predict --use_exist --use_tqdm "
+fi
+
+#!/bin/bash
+#
+#SBATCH --job-name=PL-test
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=1:00:00
+#SBATCH --mem=4GB
+#SBATCH --mail-type=END,FAIL,TIME_LIMIT
+#SBATCH --mail-user=songxia23@gmail.com
+
+singularity exec --nv \
+            --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /scratch/sx801/data/CASF-2016-cyang.sqf \
+            /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; export PYTHONPATH=.; python scripts/batch_cal_casf_scores.py --folder_names '$FOLDER_NAMES' "

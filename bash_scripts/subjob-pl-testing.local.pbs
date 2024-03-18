@@ -1,0 +1,23 @@
+module purge
+
+FOLDER_NAMES=$1
+SPECIFY=dry_polarH_10106
+WAT_REF=exp
+
+singularity exec --nv \
+            --overlay /home/carrot_of_rivia/Documents/disk/singularity/overlays/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /home/carrot_of_rivia/Documents/disk/datasets/casf-scoring-dry_polarH_10\$10\$6.sqf \
+            /home/carrot_of_rivia/Documents/disk/singularity/os/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-scoring_$SPECIFY.txt --overwrite_args configs/use_${WAT_REF}_water_ref_scoring.json --use_exist --use_tqdm "
+
+singularity exec --nv \
+            --overlay /home/carrot_of_rivia/Documents/disk/singularity/overlays/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /home/carrot_of_rivia/Documents/disk/datasets/casf-docking-dry_polarH_10\$10\$6.sqf \
+            /home/carrot_of_rivia/Documents/disk/singularity/os/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; python test.py --folder_names '$FOLDER_NAMES' --explicit_ds_config configs/test_set_casf-docking_$SPECIFY.txt --only_predict --overwrite_args configs/use_${WAT_REF}_water_ref_docking.json --use_exist --use_tqdm "
+
+singularity exec --nv \
+            --overlay /home/carrot_of_rivia/Documents/disk/singularity/overlays/pth1.12-cuda116-25GB-500K.sqf \
+            --overlay /home/carrot_of_rivia/Documents/disk/datasets/CASF-2016-cyang.sqf \
+            /home/carrot_of_rivia/Documents/disk/singularity/os/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
+            bash -c "source /ext3/env.sh; export PYTHONPATH=.; python scripts/batch_cal_casf_scores.py --folder_names '$FOLDER_NAMES' "

@@ -1,0 +1,7 @@
+--short_name=casf2016-blind-screening
+--data_provider=protein_embedding[dataset_name=casf2016-blind-screening0916/part_*.pyg]
+--prot_embedding_root=/CASF-2016-cyang/polar.esm2_t33_650M_UR50D
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle
+--valid_batch_size=32

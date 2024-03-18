@@ -1,0 +1,5 @@
+--short_name=gba
+--data_provider=chunk_mapper[dataset_name=LIT-PCBA-GBA.prot.martini.lig.polarH/chunk_*.pyg]
+--data_root=/scratch/sx801/data/im_datasets
+--record_name=sample_id
+--record_name=file_handle
