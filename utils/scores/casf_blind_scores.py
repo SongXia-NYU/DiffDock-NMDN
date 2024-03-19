@@ -239,3 +239,24 @@ class CASFBlindDockScore(CasfScoreCalculator):
         rmsd_info_csv: str = osp.join(osp.dirname(data_root), f"{ds_name}.rmsd.csv")
         rmsd_info_df: pd.DataFrame = pd.read_csv(rmsd_info_csv).set_index("file_handle")
         return rmsd_info_df
+
+def score_rank_power(score_df: pd.DataFrame, save_folder: str, save_name: str):
+    scores: dict = {}
+    tgt_df = pd.read_csv(osp.join(CASF_ROOT, "CASF-2016.csv"))[["pdb", "pKd"]].set_index("pdb")
+    scoring_df = score_df.set_index("pdb_id").join(tgt_df)
+
+    # scoring and ranking power
+    exp = scoring_df["pKd"].values
+    cal = scoring_df["score"].values
+    plot_scatter_info(exp, cal, save_folder, save_name, "Exp vs. Cal")
+    r = pearsonr(exp, cal)[0]
+    scores["score_r"] = r.item()
+    rank_info: pd.DataFrame = pd.read_csv(RANKING_CSV)
+    pdb = scoring_df.index.values.tolist()
+    df = pd.DataFrame({"pdb": pdb, "PRED": cal.tolist(), "TGT": exp.tolist()}).set_index("pdb")
+    df = pd.concat([df, rank_info.set_index("pdb")], axis=1)
+    df = df.reset_index()
+    spearman, kendall, __ = get_rank(df.dropna(), rank_info)
+    scores["rank_spearman"] = spearman.item()
+    scores["rank_kendall"] = kendall.item()
+    return scores

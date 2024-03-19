@@ -7,8 +7,6 @@ from rdkit.Chem import MolFromMol2Block, MolFromMol2File, Mol, SDMolSupplier
 
 import pandas as pd
 
-from geometry_processors.pl_dataset.csv2input_list import MPInfo
-
 class CASF2016Reader:
     def __init__(self, droot: str, phys_infuse_root: str = None) -> None:
         self.droot = droot
@@ -142,6 +140,7 @@ class CASF2016Reader:
         return self._label_df
     
 def polar_mol2_to_info(prot_pdb: str, lig_mol2: str, pdb: str, **kwargs):
+    from geometry_processors.pl_dataset.csv2input_list import MPInfo
     # special treatment to polarH since I forget to save the ligand_name which turned out to be important
     mol = MolFromMol2File(lig_mol2, removeHs=False, sanitize=False, cleanupSubstructures=False)
     mol2_forname = lig_mol2.replace(".polar.mol2", ".mol2").replace("coreset_polarH", "coreset")
@@ -151,6 +150,7 @@ def polar_mol2_to_info(prot_pdb: str, lig_mol2: str, pdb: str, **kwargs):
     return this_info
 
 def mol2_to_info_list(prot_pdb: str, lig_mol2: str, pdb: str, mol_read_args:dict=None, **kwargs):
+    from geometry_processors.pl_dataset.csv2input_list import MPInfo
     # lig_mol2 contains multiple molecules
     SEP = "@<TRIPOS>MOLECULE"
     with open(lig_mol2) as f:

@@ -25,6 +25,8 @@ class CASF2016BlindDocking:
         return osp.join(self.dock_root, "raw_predicts", pdb, "rank1.sdf")
     
     def get_nmdn_rank1(self, pdb: str):
+        if pdb not in self.nmdn_score_df.index:
+            return self.get_diffdock_rank1(pdb)
         src_file: str = self.nmdn_score_df.loc[pdb, "src"]
         src_file_name = osp.basename(src_file)
         return osp.join(self.dock_root, "raw_predicts", pdb, src_file_name)
