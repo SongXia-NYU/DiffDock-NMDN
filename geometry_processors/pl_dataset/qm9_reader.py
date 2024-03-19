@@ -7,7 +7,8 @@ from glob import glob
 import rdkit
 from rdkit.Chem import MolFromSmiles, MolToInchi, SDMolSupplier, RemoveStereochemistry
 
-from geometry_processors.misc import cached_dict, lazy_property
+from geometry_processors.lazy_property import lazy_property
+from geometry_processors.misc import cached_dict
 
 
 class QM9Reader:

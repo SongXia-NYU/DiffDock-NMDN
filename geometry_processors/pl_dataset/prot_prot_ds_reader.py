@@ -2,7 +2,7 @@ import os.path as osp
 from glob import glob
 from typing import List, Set, Tuple, Optional
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 
 class ProtProtReader:
     def __init__(self, droot: str) -> None:

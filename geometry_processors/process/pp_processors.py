@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.data.data import Data
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 from geometry_processors.pl_dataset.ConfReader import ConfReader, PDBReader
 from geometry_processors.pl_dataset.conf_reader_factory import ConfReaderFactory
 from geometry_processors.pl_dataset.csv2input_list import MPInfo

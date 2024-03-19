@@ -9,7 +9,7 @@ from rdkit.Chem import MolFromMol2Block, MolFromMol2File
 import pandas as pd
 import numpy as np
 from geometry_processors.gauss.read_gauss_log import Gauss16Log
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 
 from geometry_processors.pl_dataset.csv2input_list import MPInfo
 

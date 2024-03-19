@@ -5,21 +5,39 @@ from typing import List
 import pandas as pd
 from tqdm import tqdm
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 
 
 class CASF2016BlindDocking:
     def __init__(self, droot: str) -> None:
         self.droot = droot
-        self.dock_root = osp.join(droot, "docking_paper_models")
+        self.dock_root = "/scratch/sx801/scripts/raw_data/diffdock/test/infer_casf_dock021_dock022_2023-06-25_002147"
         self.screen_root = osp.join(droot, "screening")
 
+     # ------------ Docking results only ------------ #
     @lazy_property
     def dock_pdbs(self) -> List[str]:
-        folders = glob(osp.join(self.dock_root, "pose_diffdock", "raw_predicts", "????"))
+        folders = glob(osp.join(self.dock_root, "raw_predicts", "????"))
         pdbs = [osp.basename(folder) for folder in folders]
         return pdbs
     
+    def get_diffdock_rank1(self, pdb: str):
+        return osp.join(self.dock_root, "raw_predicts", pdb, "rank1.sdf")
+    
+    def get_nmdn_rank1(self, pdb: str):
+        src_file: str = self.nmdn_score_df.loc[pdb, "src"]
+        src_file_name = osp.basename(src_file)
+        return osp.join(self.dock_root, "raw_predicts", pdb, src_file_name)
+
+    @lazy_property
+    def nmdn_score_df(self):
+        nmdn_csv = "/scratch/sx801/scripts/raw_data/diffdock/test/infer_exp_casf_dock021_exp_pl_534_2023-06-25_002147/pred.csv"
+        nmdn_df = pd.read_csv(nmdn_csv)
+        nmdn_df["pdb_id"] = nmdn_df["file_handle"].map(lambda s: s.split(".")[0])
+        nmdn_df = nmdn_df.sort_values(by="MDN_LOGSUM_DIST2_REFDIST2", ascending=False).drop_duplicates("pdb_id").set_index("pdb_id")
+        return nmdn_df
+    
+    # ------------ Screening results only ------------ #
     @lazy_property
     def screen_pdbs(self) -> List[str]:
         folders = glob(osp.join(self.screen_root, "pose_diffdock", "raw_predicts", "????_????"))
@@ -37,28 +55,6 @@ class CASF2016BlindDocking:
         file_name = info_entry["raw_file_name"]
         droot = self.dock_root if len(pdb_id) == 4 else self.screen_root
         return osp.join(droot, "pose_diffdock", "raw_predicts", pdb_id, f"{file_name}")
-    
-    @lazy_property
-    def dock_info(self) -> pd.DataFrame:
-        dock_info_csv = osp.join(self.dock_root, "dock_info.csv")
-        if osp.exists(dock_info_csv):
-            return pd.read_csv(dock_info_csv).set_index("file_handle")
-        
-        dock_info_dict = defaultdict(lambda: [])
-        for pdb_id in self.dock_pdbs:
-            for raw_lig_f in glob(osp.join(self.dock_root, "pose_diffdock", "raw_predicts", pdb_id, "rank*_confidence*.sdf")):
-                file_name = osp.basename(raw_lig_f)
-                rank = int(file_name.split("_")[0][4:])
-                confidence = float(file_name.split("_confidence")[-1].split(".sdf")[0])
-                file_handle = f"{pdb_id}.lig_srcrank{rank}"
-                dock_info_dict["file_handle"].append(file_handle)
-                dock_info_dict["rank"].append(rank)
-                dock_info_dict["confidence"].append(confidence)
-                dock_info_dict["pdb_id"].append(pdb_id)
-                dock_info_dict["raw_file_name"].append(file_name)
-        dock_info_df = pd.DataFrame(dock_info_dict).set_index("file_handle")
-        dock_info_df.to_csv(dock_info_csv)
-        return dock_info_df
     
     @lazy_property
     def screen_info(self) -> pd.DataFrame:

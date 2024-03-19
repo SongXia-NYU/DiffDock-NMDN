@@ -10,7 +10,7 @@ from prody.proteins import parsePDB, parsePDBStream
 from rdkit.Chem import MolFromPDBFile, AddHs, MolFromMol2File
 from rdkit.Chem.AllChem import SDMolSupplier
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 
 
 class ConfReader:

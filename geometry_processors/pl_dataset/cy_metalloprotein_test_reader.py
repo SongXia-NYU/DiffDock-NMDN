@@ -4,7 +4,7 @@ import pandas as pd
 import yaml
 from typing import Dict
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 from geometry_processors.pl_dataset.prot_utils import pdb2seq
 
 

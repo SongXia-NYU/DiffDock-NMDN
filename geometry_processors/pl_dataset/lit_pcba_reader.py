@@ -4,7 +4,7 @@ import os.path as osp
 from glob import glob
 from typing import List, Tuple
 from tqdm import tqdm
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 from geometry_processors.pl_dataset.prot_utils import pdb2seq
 
 # the PDB_ID used for DiffDock docking

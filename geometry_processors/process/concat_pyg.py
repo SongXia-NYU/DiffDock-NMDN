@@ -13,7 +13,7 @@ import torch_geometric.data
 from torch_geometric.data import Data, HeteroData
 import numpy as np
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 
 class PyGCollateProcessor:
     def __init__(self, pygs: List[str] = None, save_pyg: str = None, data_list: List[Data] = None) -> None:

@@ -1,6 +1,6 @@
 from typing import List
 
-from geometry_processors.misc import lazy_property
+from geometry_processors.lazy_property import lazy_property
 
 
 class HPC_FilePurgeVis:
