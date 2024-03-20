@@ -30,7 +30,7 @@ for diffdock_root in tqdm(reader.get_ligs_diffdock_root()):
     file_handle = osp.basename(diffdock_root)
     target = file_handle.split(".")[0]
     lig_id = ".".join(file_handle.split(".")[1:])
-    lig_diffdock_rank1 = reader.get_nmdn_rank1(target, lig_id)
+    lig_diffdock_rank1 = reader.get_diffdock_rank1(target, lig_id)
     prot = reader.get_prot_src(target)
 
     res = xgb_wrapper(prot, lig_diffdock_rank1, protdir)

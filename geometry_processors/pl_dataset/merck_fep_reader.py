@@ -64,7 +64,13 @@ class MerckFEPReader:
         return osp.join(self.ds_root, "pose_diffdock", "raw_predicts", f"{target}.{ligand_id}", "rank1.sdf")
     
     def get_nmdn_rank1(self, target: str, ligand_id: str):
-        rank = self.nmdn_rank1_df.loc[f"{target}.{ligand_id}", "rank"]
+        ligand_query = ligand_id
+        if "Example" in ligand_query: 
+            ligand_query = "".join(ligand_query.split(" "))
+        ligand_query = f"{target}.{ligand_query}"
+        if ligand_query not in self.nmdn_rank1_df.index:
+            return self.get_diffdock_rank1(target, ligand_id)
+        rank = self.nmdn_rank1_df.loc[ligand_query, "rank"]
         files = glob(osp.join(self.ds_root, "pose_diffdock", "raw_predicts", f"{target}.{ligand_id}", f"{rank}_confidence*.sdf"))
         assert len(files) == 1, files
         return files[0]
