@@ -2,7 +2,7 @@ from collections import defaultdict
 import os
 import os.path as osp
 from glob import glob
-from typing import Dict
+from typing import Dict, List, Tuple
 import pandas as pd
 import yaml
 from scipy.stats import spearmanr
@@ -46,34 +46,9 @@ class MerckFEPScoreCalculator(TrainedFolder):
             return ".".join(fl.split(".")[:-1])
         if self.diffdock:
             res_df["file_handle"] = res_df["file_handle"].map(_fl_no_rank)
+            res_df = res_df.sort_values("NMDN_score", ascending=False).drop_duplicates("file_handle")
 
-        def _fl2_target(fl: str):
-            target = fl.split(".")[0]
-            if target == "eg5_alternativeloop":
-                target = "remove"
-            return target
-        ds_reader = MerckFEPReader("/vast/sx801/geometries/fep-benchmark")
-        def _fl2exp(fl: str):
-            splits = fl.split(".")
-            target = splits[0]
-            ligand = ".".join(splits[1:])
-            if "Example" in ligand: ligand = "".join(ligand.split(" "))
-            return ds_reader.query_exp_delta_g(target, ligand)
-        res_df["exp"] = res_df["file_handle"].map(_fl2exp)
-        res_df["target"] = res_df["file_handle"].map(_fl2_target)
-        res_df = res_df[res_df["target"] != "remove"]
-        # res_df columns: target, exp, pKd_score, NMDN_score
-        rank_info_by_score: Dict[str, Dict[str, float]] = defaultdict(lambda: {})
-        count_info_by_target: Dict[str, int] = {}
-        for target, df in res_df.groupby("target"):
-            for score in ["pKd_score", "NMDN_score"]:
-                if self.diffdock:
-                    df_selected = df.sort_values("NMDN_score", ascending=False).drop_duplicates("file_handle")
-                else: df_selected = df
-                rank_info_by_score[score][target] = spearmanr(-df_selected[score], df_selected["exp"])[0].item()
-            count_info_by_target[target] = df_selected.shape[0]
-        print(count_info_by_target)
-        rank_info_by_score = dict(rank_info_by_score)
+        rank_info_by_score, count_info_by_target = self.compute_rank_info(res_df, ["pKd_score", "NMDN_score"])
         with open(osp.join(self.save_dir, "rank_info_by_score.yaml"), "w") as f:
             yaml.safe_dump(rank_info_by_score, f)
         
@@ -86,6 +61,34 @@ class MerckFEPScoreCalculator(TrainedFolder):
             rank_df = pd.DataFrame(rank_info, index=[0]).loc[:, correct_order]
             rank_df.to_csv(osp.join(self.save_dir, f"{score}.csv"))
             rank_df.to_excel(osp.join(self.save_dir, f"{score}.xlsx"), float_format="%.3f")
+
+    @staticmethod
+    def compute_rank_info(score_df: pd.DataFrame, score_names: List[str]) -> Tuple[Dict[str, Dict[str, float]], Dict[str, int]]:
+        def _fl2_target(fl: str):
+            target = fl.split(".")[0]
+            if target == "eg5_alternativeloop":
+                target = "remove"
+            return target
+        ds_reader = MerckFEPReader("/vast/sx801/geometries/fep-benchmark")
+        def _fl2exp(fl: str):
+            splits = fl.split(".")
+            target = splits[0]
+            ligand = ".".join(splits[1:])
+            if "Example" in ligand: ligand = "".join(ligand.split(" "))
+            return ds_reader.query_exp_delta_g(target, ligand)
+        score_df["exp"] = score_df["file_handle"].map(_fl2exp)
+        score_df["target"] = score_df["file_handle"].map(_fl2_target)
+        score_df = score_df[score_df["target"] != "remove"]
+        # res_df columns: target, exp, pKd_score, NMDN_score
+        rank_info_by_score: Dict[str, Dict[str, float]] = defaultdict(lambda: {})
+        count_info_by_target: Dict[str, int] = {}
+        for target, df in score_df.groupby("target"):
+            for score in score_names:
+                df_selected = df
+                rank_info_by_score[score][target] = spearmanr(-df_selected[score], df_selected["exp"])[0].item()
+            count_info_by_target[target] = df_selected.shape[0]
+        rank_info_by_score = dict(rank_info_by_score)
+        return rank_info_by_score, count_info_by_target
 
 def benchmark_prime():
     ds_reader = MerckFEPReader("/vast/sx801/geometries/fep-benchmark")

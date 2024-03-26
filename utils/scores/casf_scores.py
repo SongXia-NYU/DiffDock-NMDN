@@ -85,6 +85,8 @@ class CasfScoreCalculator(TrainedFolder):
             self.save_summary(f"result_summary_{action}")
 
     def mixed_mdn_run(self):
+        # NMDN select pose and pKd score.
+        self.screening_mixed_scores(None, 1)
         # manually turned off 8/21/2023 to save computation time
         # does not work very well anyway.
         return
@@ -188,11 +190,10 @@ class CasfScoreCalculator(TrainedFolder):
         result_summary = calc_screening_score(osp.join(self.save_root, screening_name), "pred_data", "screening")
         self.result_summary.update(result_summary)
 
-    def screening_mixed_scores(self, n_mdn_lig, n_mdn_pose):
+    def screening_mixed_scores(self, n_mdn_lig, n_mdn_pose=None):
         """
         Use MDN probablity for docking decoy selections and pKd for binder selection.
         """
-        n_mdn_pose = None
         if isinstance(n_mdn_lig, float):
             assert n_mdn_lig >=0. and n_mdn_lig <= 1.0, n_mdn_lig
             n_mdn_lig = math.ceil(285 * n_mdn_lig)
@@ -221,6 +222,7 @@ class CasfScoreCalculator(TrainedFolder):
                 this_df = info_df[info_df["binder_pdb"] == binder_pdb].reset_index()
                 if n_mdn_pose is not None:
                     # numpy argsort return accending order so I added "-"
+                    breakpoint()
                     mdn_decend = np.argsort(-this_df["score_mdn"].values)
                     this_df.loc[mdn_decend[n_mdn_pose:].tolist(), "score"] = -999999.
                 result_df.append(this_df)
