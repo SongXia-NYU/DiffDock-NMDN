@@ -60,8 +60,9 @@ class DummyIMDataset(InMemoryDataset):
             self.debug_mode_modify(config_args)
         # training a DiffDock confidence model-like classfication model
         self.rmsd_threshold: Optional[float] = config_args["rmsd_threshold"]
+        self.no_pkd_score: bool = config_args.get("no_pkd_score", False)
         # The RMSD of ligands after MMFF optimization. Used as a feature to predict pKd.
-        self.infuse_rmsd_info: bool = (config_args["rmsd_csv"] is not None)
+        self.infuse_rmsd_info: bool = (config_args["rmsd_csv"] is not None) and (not self.no_pkd_score)
         if self.infuse_rmsd_info:
             self.rmsd_query = RMSD_Query(config_args)
 
@@ -79,6 +80,11 @@ class DummyIMDataset(InMemoryDataset):
             self.data.pdb = pdb_list
             self.slices["pdb"] = copy.copy(self.slices["file_handle_ranked"])
             return
+        if not hasattr(self.data, "protein_file"):
+            self.data.pdb = ["" for __ in self.data.file_handle]
+            self.slices["pdb"] = copy.copy(self.slices["file_handle"])
+            return
+        
         assert hasattr(self.data, "protein_file")
         pdb_list = [osp.basename(f).split(".")[0].split("_")[0] for f in self.data.protein_file]
         self.data.pdb = pdb_list
@@ -297,7 +303,7 @@ class AuxPropDataset(DummyIMDataset):
         self.mdn_w_prot_sasa = config_args["mdn_w_prot_sasa"]
         self.want_atom_prop: bool = (config_args["atom_prop_ds"] is not None) and (not self.is_testing and self.mdn_w_lig_atom_props > 0.)
         self.want_prot_prop: bool = (not self.is_testing and self.mdn_w_prot_sasa > 0.)
-        self.want_mol_prop: bool = self.cfg["precomputed_mol_prop"]
+        self.want_mol_prop: bool = self.cfg["precomputed_mol_prop"] and not (self.no_pkd_score)
         # Special logic: when testing on external test sets ("short_name" is available in config)
         # the pre-computed mol_prop is no longer useful and want_mol_prop has to be disabled.
         # Instead, mol_prop will be computed on-the-fly in MPNNPairedPropLayer

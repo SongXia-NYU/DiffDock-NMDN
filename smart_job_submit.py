@@ -342,13 +342,13 @@ class CASF_BlindDockJobSubmitter(CASF_JobSubmitter):
         info = super().info4tmpl
         ds_name = self.ds_args["test_name"]
         if self.ref: ds_name += "-ref"
-        docking_config = f"configs/test_set_casf-blind-docking_{ds_name}.txt"
-        assert osp.exists(docking_config), docking_config
+        # docking_config = f"configs/test_set_casf-blind-docking_{ds_name}.txt"
+        # assert osp.exists(docking_config), docking_config
         screening_config = f"configs/test_set_casf-blind-screening_{ds_name}.txt"
-        info["docking_config"] = docking_config
+        # info["docking_config"] = docking_config
         info["screening_config"] = screening_config
         info["casf_extra"] += "--blind-dock "
-        info["casf_extra"] += f"--docking_config {docking_config}"
+        # info["casf_extra"] += f"--docking_config {docking_config}"
         return info
 
 class LIT_PCBA_JobSubmitter(TestJobSubmitter):

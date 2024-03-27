@@ -1,8 +1,0 @@
---short_name=casf2016-scoring
---data_provider=protein_embedding[dataset_name=casf-scoring.prot.polar.lig.polar.implicit.min_dist.pyg]
---prot_embedding_root=/CASF-2016-cyang/polar.esm2_t33_650M_UR50D
---data_root=/scratch/sx801/data/im_datasets
---kano_ds=casf-scoring.lig.polar.kano.pickle
---record_name=sample_id
---record_name=ligand_file
---valid_batch_size=32

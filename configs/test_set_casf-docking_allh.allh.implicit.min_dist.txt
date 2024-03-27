@@ -1,9 +1,0 @@
---short_name=casf2016-docking
---data_provider=protein_embedding[dataset_name=casf-docking.allh.allh.implicit.min_dist.pyg]
---prot_embedding_root=/CASF-2016-cyang/polar.esm2_t33_650M_UR50D
---prot_info_ds=casf-scoring.allh.allh.implicit.min_dist.pyg
---data_root=/scratch/sx801/data/im_datasets
---kano_ds=casf-docking.lig.polar.kano.pickle
---record_name=sample_id
---record_name=ligand_file
---valid_batch_size=32

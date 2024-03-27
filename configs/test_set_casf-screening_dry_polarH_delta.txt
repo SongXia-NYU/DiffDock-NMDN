@@ -1,6 +1,0 @@
---short_name=casf2016-screening
---data_provider=casf_delta_screening[dataset_name=casf-screening-dry-prot.polarH.lig.polarH/*.pyg]
---data_root=/scratch/sx801/data/im_datasets
---record_name=sample_id
---record_name=ligand_file
---record_name=protein_file

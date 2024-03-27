@@ -26,12 +26,6 @@ from utils.utils_functions import floating_type, dime_edge_expansion, softplus_i
 
 
 class PhysDimeNet(nn.Module):
-    """
-    Combination of PhyNet and DimeNet
-    For non-bonding interaction, using atom-atom interaction in PhysNet
-    For bonding interaction, using directional message passing
-    Final prediction is the combination of PhysNet and DimeNet
-    """
 
     def __init__(self, cfg: dict, energy_shift=None, energy_scale=None, ext_atom_dim=0, ds: Dataset=None, **kwargs):
         super().__init__()

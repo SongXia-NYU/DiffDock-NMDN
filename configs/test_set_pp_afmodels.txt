@@ -1,9 +1,0 @@
---short_name=pp_test_af2
---data_provider=pp_embedding
---dataset_name=prot_prot_test_afmodels.polar.polar.pyg
---data_root=/scratch/sx801/data/im_datasets
---record_name=sample_id
---record_name=pdb
---record_name=rank
---prot_embedding_root=/scratch/projects/yzlab/xd638/protein_protein_projects/pro_pep_test_AF2models_20230803/A08_esm_embedding_20230803/
---prot_embed_use_chunks

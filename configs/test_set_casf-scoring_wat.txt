@@ -1,6 +1,0 @@
---short_name=casf2016-scoring
---data_provider=dummy[dataset_name=CASF-2016_scoring_reborn-09022022.pyg]
---data_root=../dataProviders/data
---record_name=sample_id
---record_name=ligand_file
---record_name=protein_file

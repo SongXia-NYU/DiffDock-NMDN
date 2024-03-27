@@ -4,7 +4,7 @@ from typing import Dict, Union
 import torch
 import torch.nn as nn
 
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 from copy import copy
 
 from utils.LossFn import BaseLossFn
@@ -15,9 +15,8 @@ from utils.utils_functions import get_device
 from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
 
 class Evaluator:
-    def __init__(self, mol_lvl_detail=False, lightweight=True, cfg: dict=None) -> None:
+    def __init__(self, mol_lvl_detail=False, cfg: dict=None) -> None:
         self.mol_lvl_detail: bool = mol_lvl_detail
-        self.lightweight: bool = lightweight
         self.cfg = cfg
 
     def init_vars(self):
@@ -83,9 +82,7 @@ class Evaluator:
             if tags.val_avg(key):
                 loss_detail[key] = 0.
             elif tags.val_concat(key):
-                # :param lightweight: to make the final file small, otherwise it grows into several GBs
-                if self.lightweight and key == "atom_embedding":
-                    continue
+                if key == "atom_embedding": continue
                 loss_detail[key] = []
         return loss_detail
     

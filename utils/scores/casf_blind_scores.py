@@ -35,7 +35,7 @@ class CASFBlindScreenScore(CasfScoreCalculator):
             this_df["lig_pdb"] = this_df["#code_ligand_num"].map(lambda s: s.split("_")[0])
             for mdn_name in ["MDN_SUM_DIST2_REF", "MDN_LOGSUM_REF", "MDN_LOGSUM_DIST2_REFDIST2"]:
                 computed_keys.add(f"{mdn_name}_PKd")
-                pose_selected_df = this_df.sort_values(mdn_name).drop_duplicates("lig_pdb")
+                pose_selected_df = this_df.sort_values(mdn_name, ascending=False).drop_duplicates("lig_pdb")
                 resdir = osp.join(self.save_root, f"screening_scores_{mdn_name}_PKd")
                 os.makedirs(resdir, exist_ok=True)
                 df2save: pd.DataFrame = pose_selected_df[["#code_ligand_num", "PROP_PRED"]].rename({"PROP_PRED": "score"}, axis=1)

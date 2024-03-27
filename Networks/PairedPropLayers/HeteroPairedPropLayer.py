@@ -25,7 +25,13 @@ class HeteroPairedPropLayer(nn.Module):
 
         self.w_lig_metal: float = cfg["w_lig_metal"]
 
+        # It is used during testing: disable this layer to only predict NMDN score
+        self.no_pkd_score: bool = self.lig_prot_layer.no_pkd_score
+
     def forward(self, runtime_vars: dict):
+        if self.no_pkd_score:
+            return runtime_vars
+        
         # compute protein-ligand interaction and record it
         runtime_vars = self.lig_prot_layer.forward(runtime_vars)
         lig_prot_prop: torch.Tensor = runtime_vars["pair_mol_prop"]

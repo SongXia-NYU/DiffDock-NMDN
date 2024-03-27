@@ -1,5 +1,6 @@
 import argparse
 import copy
+from functools import cached_property
 import glob
 import logging
 import os
@@ -15,7 +16,7 @@ from utils.DataPrepareUtils import my_pre_transform
 from Networks.PhysDimeNet import PhysDimeNet
 from Networks.UncertaintyLayers.swag import SWAG
 from utils.train.trainer import data_provider_solver, _add_arg_from_config, remove_extra_keys
-from utils.utils_functions import args2loss_fn, remove_handler, get_device, floating_type, init_model_test, solv_num_workers, validate_index, \
+from utils.utils_functions import lossfn_factory, lazy_property, remove_handler, get_device, floating_type, init_model_test, solv_num_workers, validate_index, \
     add_parser_arguments, preprocess_config
 
 
@@ -94,32 +95,28 @@ class TrainedFolder:
             self._num_workers = num_workers
         return self._num_workers
 
-    @property
+    @cached_property
     def loss_fn(self):
-        if self._loss_fn is None:
-            self._loss_fn = args2loss_fn(self.args)
-        return self._loss_fn
+        return lossfn_factory(self.args)
 
-    @property
+    @cached_property
     def args(self):
-        if self._args is None:
-            _args = copy.deepcopy(self.args_raw)
+        _args = copy.deepcopy(self.args_raw)
 
-            if _args["ext_atom_features"] is not None:
-                # infer the dimension of external atom feature
-                ext_atom_feature = getattr(self.ds[[0]].data, _args["ext_atom_features"])
-                ext_atom_dim = ext_atom_feature.shape[-1]
-                _args["ext_atom_dim"] = ext_atom_dim
-                del ext_atom_feature
+        if _args["ext_atom_features"] is not None:
+            # infer the dimension of external atom feature
+            ext_atom_feature = getattr(self.ds[[0]].data, _args["ext_atom_features"])
+            ext_atom_dim = ext_atom_feature.shape[-1]
+            _args["ext_atom_dim"] = ext_atom_dim
+            del ext_atom_feature
 
-            inferred_prefix = self.folder_name.split('_run_')[0]
-            if _args["folder_prefix"] != inferred_prefix:
-                print('overwriting folder {} ----> {}'.format(_args["folder_prefix"], inferred_prefix))
-                _args["folder_prefix"] = inferred_prefix
-            _args["requires_atom_prop"] = True
+        inferred_prefix = self.folder_name.split('_run_')[0]
+        if _args["folder_prefix"] != inferred_prefix:
+            print('overwriting folder {} ----> {}'.format(_args["folder_prefix"], inferred_prefix))
+            _args["folder_prefix"] = inferred_prefix
+        _args["requires_atom_prop"] = True
 
-            self._args = _args
-        return self._args
+        return _args
 
     @property
     def ds(self):

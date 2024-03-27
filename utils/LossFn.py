@@ -32,7 +32,7 @@ class BaseLossFn:
     def __call__(self, model_output, data_batch, is_training, loss_detail=False, mol_lvl_detail=False):
         raise NotImplementedError
 
-    def only_predict_mode(self) -> None:
+    def inference_mode(self) -> None:
         pass
     
 class KLDivRegressLossFn(BaseLossFn):
@@ -81,28 +81,31 @@ class MDNMixLossFn(BaseLossFn):
     """
     Using both MDN loss and normal regression loss (MAE, MSE, etc..)
     """
-    def __init__(self, config_dict) -> None:
+    def __init__(self, cfg: dict) -> None:
         super().__init__()
 
-        self.mdn_loss_fn = MDNLossFn(config_dict)
-        normal_config = copy.copy(config_dict)
+        self.mdn_loss_fn = MDNLossFn(cfg)
+        normal_config = copy.copy(cfg)
         normal_config["loss_metric"] = normal_config["loss_metric"].split("_")[-1]
         w_e, w_f, w_q, w_p = 1, normal_config["force_weight"], normal_config["charge_weight"], normal_config["dipole_weight"]
         self.normal_loss_fn = LossFn(w_e=w_e, w_f=w_f, w_q=w_q, w_p=w_p, config_dict=normal_config, **normal_config)
         self.mse_loss = nn.MSELoss()
         self.mse_loss_noreduce = nn.MSELoss(reduction="none")
 
-        self.w_mdn = config_dict["w_mdn"]
-        self.w_regression = config_dict["w_regression"]
-        self.w_cross_mdn_pkd = config_dict["w_cross_mdn_pkd"]
-        self.cross_mdn_prop_name = config_dict["cross_mdn_prop_name"]
-        self.cross_mdn_behaviour = config_dict["cross_mdn_behaviour"]
-        self.cutoff4cross_loss = config_dict["mdn_threshold_prop"]
+        self.w_mdn = cfg["w_mdn"]
+        self.w_regression = cfg["w_regression"]
+        self.w_cross_mdn_pkd = cfg["w_cross_mdn_pkd"]
+        self.cross_mdn_prop_name = cfg["cross_mdn_prop_name"]
+        self.cross_mdn_behaviour = cfg["cross_mdn_behaviour"]
+        self.cutoff4cross_loss = cfg["mdn_threshold_prop"]
 
-    def only_predict_mode(self) -> None:
-        self.mdn_loss_fn.only_predict_mode()
-        self.normal_loss_fn.only_predict_mode()
-        return super().only_predict_mode()
+        no_pkd_score: bool = cfg.get("no_pkd_score", False)
+        self.compute_pkd_score: bool = (self.w_regression > 0.) and (not no_pkd_score)
+
+    def inference_mode(self) -> None:
+        self.mdn_loss_fn.inference_mode()
+        self.normal_loss_fn.inference_mode()
+        return super().inference_mode()
 
     def __call__(self, model_output, data_batch, is_training, loss_detail=False, mol_lvl_detail=False):
         # mdn loss
@@ -112,7 +115,7 @@ class MDNMixLossFn(BaseLossFn):
 
         # regression loss
         reg_out = 0.
-        if self.w_regression > 0.:
+        if self.compute_pkd_score:
             reg_out = self.normal_loss_fn(model_output, data_batch, is_training, loss_detail, mol_lvl_detail)
 
         cross_mdn_pkd = self.compute_cross_mdn_pkd(model_output, data_batch)
@@ -131,7 +134,7 @@ class MDNMixLossFn(BaseLossFn):
             total_loss = total_loss + self.w_mdn * mdn_loss
 
         # regression loss
-        if self.w_regression > 0.:
+        if self.compute_pkd_score:
             reg_loss, reg_detail = reg_out
             total_loss = total_loss + self.w_regression*reg_loss
             loss_detail.update(reg_detail)
@@ -191,11 +194,10 @@ class MDNLossFn(BaseLossFn):
             self.reg_loss_fn = nn.L1Loss(reduction="none")
 
         self.config_dict = config_dict
-        # ----- the following variables are only injected by tester ---- #
         # ignore auxillary task, only make predictions
         self.only_predict = False
         # compute external MDN scores: normalized scores, max MDN scores, reference at 6.5A, etc...
-        self.compute_external_mdn = False
+        self.compute_external_mdn: bool = config_dict.get("compute_external_mdn", False)
         self.nmdn_calculator = NMDN_Calculator(config_dict)
         # distance coefficient when evaluating
         if config_dict["val_pair_prob_dist_coe"] is not None:
@@ -203,9 +205,9 @@ class MDNLossFn(BaseLossFn):
             print(msg)
             logging.warn(msg)
 
-    def only_predict_mode(self) -> None:
+    def inference_mode(self) -> None:
         self.only_predict = True
-        return super().only_predict_mode()
+        return super().inference_mode()
 
     def __call__(self, model_output, data_batch, is_training, loss_detail=False, mol_lvl_detail=False):
         mdn = mdn_loss_fn(model_output["pi"], model_output["sigma"], model_output["mu"], model_output["dist"])
@@ -345,9 +347,9 @@ class LossFn(BaseLossFn):
         self.delta_learning = (ds_name_base in ["pl_delta_learning"] or config_dict["delta_learning_pkd"])
         self.ignore_nan = config_dict["regression_ignore_nan"]
 
-    def only_predict_mode(self) -> None:
+    def inference_mode(self) -> None:
         self.only_predict = True
-        return super().only_predict_mode()
+        return super().inference_mode()
 
     def __call__(self, model_output, data_batch, is_training, loss_detail=False, mol_lvl_detail=False):
         if self.only_predict:

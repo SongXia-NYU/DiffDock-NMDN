@@ -146,6 +146,9 @@ class MPNNPairedPropLayer(GaussExpandLayer):
         self.register_pkd_phys_terms(config_dict)
         self.register_readout(out_dim, config_dict)
 
+        # It is used during testing: disable this layer to only predict NMDN score
+        self.no_pkd_score: bool = config_dict.get("no_pkd_score", False)
+
     def get_prot_dim(self, config_dict: dict):
         return get_prot_dim(config_dict)
 
@@ -186,6 +189,9 @@ class MPNNPairedPropLayer(GaussExpandLayer):
         self.pkd_phys_readout = nn.Sequential(nn.Linear(self.readout_dim, num_phys_terms))
         
     def forward(self, runtime_vars: dict):
+        if self.no_pkd_score:
+            return runtime_vars
+        
         # retrieve edge information
         data_batch = runtime_vars["data_batch"]
         pl_edge, pl_dist = self.retrieve_edge_info(data_batch)

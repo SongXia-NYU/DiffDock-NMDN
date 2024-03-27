@@ -1,5 +1,6 @@
 import argparse
 import copy
+from functools import cached_property
 import glob
 import json
 import logging
@@ -30,81 +31,58 @@ class Tester(TrainedFolder):
     Load a trained folder for performance evaluation
     """
 
-    def __init__(self, folder_name, n_forward=5, x_forward=False, use_exist=False, check_active=False,
-                 ignore_train=True, lightweight=True, config_folder=None, no_runtime_split=False,
+    def __init__(self, folder_name, use_exist=False,
+                 ignore_train=True, config_folder=None, no_runtime_split=False,
                  explicit_ds_config=None, only_predict=False, use_tqdm=False, overwrite_args=None, **kwargs):
         super().__init__(folder_name, config_folder)
         self.overwrite_args = overwrite_args
         self.use_tqdm = use_tqdm
         self.only_predict = only_predict
         self.explicit_ds_config = explicit_ds_config
-        self.lightweight = lightweight
         self.ignore_train = ignore_train
-        self.check_active = check_active
         self.no_runtime_split = no_runtime_split
         self.use_exist = use_exist
-        self.x_forward = x_forward
-        self.n_forward = n_forward
-        self.compute_external_mdn = kwargs.pop("compute_external_mdn", False)
-
+        # these will be used to overwrite self.args for additional functionalities
+        self.additional_args: dict = kwargs
+        
         self._explicit_ds_args = None
         self._loss_fn = None
 
         for key in kwargs:
             print("Unused kwargs: ", key)
 
-    @property
+    @cached_property
     def model(self):
-        if self._model is None:
-            if self.args["loss_metric"] == "mdn" and not self.args["swa_use_buffers"]:
-                model_path = osp.join(self.folder_name, 'best_model_bn_updated.pt')
-            else:
-                model_path = osp.join(self.folder_name, 'best_model.pt')
-                
-            model_data = torch.load(model_path, map_location=get_device())
-            if self.overwrite_args is not None:
-                # temp fix
-                for key in list(model_data.keys()):
-                    if key.endswith("_BN"):
-                        model_data[key.split("_BN")[0]+"_LIGAND"] = model_data.pop(key)
-            # ds was manually set to None
-            net = init_model_test(self.explicit_ds_args if self.explicit_ds_args else self.args, 
-                                  model_data, ds=None)
-            self._model = net
-        return self._model
+        model_path = osp.join(self.folder_name, 'best_model.pt')
+        model_data = torch.load(model_path, map_location=get_device())
+        if self.overwrite_args is not None:
+            # temp fix
+            for key in list(model_data.keys()):
+                if key.endswith("_BN"):
+                    model_data[key.split("_BN")[0]+"_LIGAND"] = model_data.pop(key)
+        # ds was manually set to None
+        net = init_model_test(self.explicit_ds_args if self.explicit_ds_args else self.args, 
+                                model_data, ds=None)
+        return net
 
-    @property
+    @cached_property
     def args(self):
-        if self._args is None:
-            args = super().args
-            if self.overwrite_args is not None:
-                with open(self.overwrite_args) as f:
-                    overwrite_args = json.load(f)
-                for key in overwrite_args.keys():
-                    args[key] = overwrite_args[key]
-            if self.explicit_ds_args is not None:
-                args["kano_ds"] = self.explicit_ds_args["kano_ds"]
-            self._args = args
-        return self._args
+        args: dict = super().args
+        if self.overwrite_args is not None:
+            with open(self.overwrite_args) as f:
+                overwrite_args = json.load(f)
+            for key in overwrite_args.keys():
+                args[key] = overwrite_args[key]
+        if self.explicit_ds_args is not None:
+            args["kano_ds"] = self.explicit_ds_args["kano_ds"]
+        args.update(self.additional_args)
+        return args
 
-    @property
+    @cached_property
     def loss_fn(self):
-        if self._loss_fn is not None:
-            return self._loss_fn
-        
-        _loss_fn = super(Tester, self).loss_fn
-        # manually set compute_external_mdn. It might be a bad idea.
-        if isinstance(_loss_fn, MDNMixLossFn):
-            _loss_fn.mdn_loss_fn.compute_external_mdn = self.compute_external_mdn
-        if isinstance(_loss_fn, MDNLossFn):
-            # The atom properties and protein SASA are two aux tasks only used in training
-            # Disabling them during testing since the labels are not available in the test sets
-            _loss_fn.lig_atom_props = False
-            _loss_fn.prot_sasa = False
-            _loss_fn.compute_external_mdn = self.compute_external_mdn
-        if self.only_predict: _loss_fn.only_predict_mode()
-        self._loss_fn = _loss_fn
-        return self._loss_fn
+        loss_fn = super(Tester, self).loss_fn
+        if self.only_predict: loss_fn.inference_mode()
+        return loss_fn
 
     @property
     def ds(self):
@@ -169,6 +147,7 @@ class Tester(TrainedFolder):
             explicit_ds_args["data_provider"] = explicit_ds_args["data_provider"].replace("protein_embedding", "ESMGearNetProtLig")
             explicit_ds_args["prot_embedding_root"] = None
         self._explicit_ds_args = explicit_ds_args
+        self._explicit_ds_args.update(self.additional_args)
         return self._explicit_ds_args
     
     @staticmethod
@@ -288,6 +267,7 @@ class Tester(TrainedFolder):
         self.info(f"Testing on {index_name}")
         if self.ignore_train and index_name == "train_index":
             return
+        
         index_short = index_name.split("_")[0]
         ds_name = osp.basename(this_ds.processed_file_names[0]).split(".pyg")[0]
         result_name = f"loss_{ds_name}_{index_short}.pt"
@@ -304,6 +284,7 @@ class Tester(TrainedFolder):
         if this_index is None:
             # for external test datasets where train_index and val_index are None
             return
+        
         this_index = torch.as_tensor(this_index)
 
         self.info("{} size: {}".format(index_name, len(this_index)))
@@ -315,32 +296,23 @@ class Tester(TrainedFolder):
         this_dl = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=self.num_workers)
         if self.use_tqdm:
             this_dl = tqdm.tqdm(this_dl, desc=index_name, total=len(this_ds)//batch_size)
-        this_info, this_std = self.test_step(this_dl, result_file)
+
+        assert self.args["uncertainty_modify"] == 'none', self.args["uncertainty_modify"]
+        result = val_step_new(self.model, this_dl, self.loss_fn, mol_lvl_detail=True)
+        result["target_names"] = self.loss_fn.target_names
+        torch.save(result, result_file)
+
         self.info("-------------- {} ---------------".format(index_short))
-        for key in this_info:
-            d = this_info[key]
+        for key in result:
+            d = result[key]
             if isinstance(d, torch.Tensor):
                 if torch.numel(d) == 1:
-                    self.info("{}: {}".format(key, this_info[key].item()))
+                    self.info("{}: {}".format(key, result[key].item()))
                 else:
-                    self.info("{} with shape: {}".format(key, this_info[key].shape))
+                    self.info("{} with shape: {}".format(key, result[key].shape))
             else:
-                self.info("{}: {}".format(key, this_info[key]))
+                self.info("{}: {}".format(key, result[key]))
         self.info("----------- end of {} ------------".format(index_short))
-
-    def test_step(self, data_loader, result_file):
-        if self.args["uncertainty_modify"] == 'none':
-            result = val_step_new(self.model, data_loader, self.loss_fn, mol_lvl_detail=True,
-                                  lightweight=self.lightweight)
-            result["target_names"] = self.loss_fn.target_names
-            torch.save(result, result_file)
-            return result, None
-        elif self.args["uncertainty_modify"].split('_')[0].split('[')[0] in ['concreteDropoutModule',
-                                                                             'concreteDropoutOutput',
-                                                                             'swag']:
-            raise NotImplementedError
-        else:
-            raise ValueError('unrecognized uncertainty_modify: {}'.format(self.args.uncertainty_modify))
 
     def save_chk(self):
         chk_dict = {}

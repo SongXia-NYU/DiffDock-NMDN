@@ -1,9 +1,0 @@
---short_name=pp_test_af22_50_rankeds
---data_provider=pp_embedding
---dataset_name=AF22_50_rankeds.intra.polar.polar.pyg
---data_root=/scratch/sx801/data/im_datasets
---record_name=sample_id
---record_name=pdb
---record_name=chains_combined_pdb
---prot_embedding_root=/vast/sx801/geometries/ProtProt_Xuhang/AF22_50_rankeds.esm2_t33_650M_UR50D
---prot_embed_use_chunks

@@ -42,7 +42,7 @@ from utils.data.vs_im_datasets import ChunkMapperDataset
 from utils.eval.evaluator import Evaluator
 from utils.tags import tags
 from utils.time_meta import print_function_runtime, record_data
-from utils.utils_functions import add_parser_arguments, args2loss_fn, floating_type, lazy_property, mp_mean_std_calculate, preprocess_config, get_lr, get_n_params, \
+from utils.utils_functions import add_parser_arguments, lossfn_factory, floating_type, lazy_property, mp_mean_std_calculate, preprocess_config, get_lr, get_n_params, \
     atom_mean_std, remove_handler, option_solver, fix_model_keys, get_device, process_state_dict, \
     validate_index, non_collapsing_folder, solv_num_workers
 
@@ -893,7 +893,7 @@ class Trainer:
     
     @lazy_property
     def loss_fn(self):
-        return args2loss_fn(self.config_processed)
+        return lossfn_factory(self.config_processed)
 
 
 def remove_extra_keys(data_provider, logger=None, return_extra=False):
@@ -991,8 +991,8 @@ def data_provider_solver(args, default_kw_args=None, ds_key="data_provider"):
         raise ValueError('Unrecognized dataset name: {} !'.format(name_base))
 
 
-def val_step_new(model, _data_loader, loss_fn: BaseLossFn, mol_lvl_detail=False, lightweight=True, config_dict=None):
-    evaluator = Evaluator(mol_lvl_detail, lightweight, config_dict)
+def val_step_new(model, _data_loader, loss_fn: BaseLossFn, mol_lvl_detail=False, config_dict=None):
+    evaluator = Evaluator(mol_lvl_detail, config_dict)
     return evaluator.compute_val_loss(model, _data_loader, loss_fn)
 
 

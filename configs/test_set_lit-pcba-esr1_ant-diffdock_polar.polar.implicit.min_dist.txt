@@ -1,7 +1,0 @@
---short_name=esr1_ant-diffdock
---data_provider=protein_embedding[dataset_name=LIT-PCBA-D021_D022-ESR1_ant.polar.polar.implicit.mindist/part_*.pyg]
---prot_embedding_root=/LIT-PCBA/ESR1_ant/prot_polar.esm2_t33_650M_UR50D
---prot_embed_use_chunks
---data_root=/scratch/sx801/data/im_datasets
---record_name=sample_id
---record_name=file_handle

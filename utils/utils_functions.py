@@ -1113,16 +1113,16 @@ def validate_index(train_index: Union[List[int], torch.LongTensor], val_index, t
     return train_size, val_size, test_size
 
 
-def args2loss_fn(args):
+def lossfn_factory(cfg: dict):
     from utils.LossFn import LossFn, MDNLossFn, MDNMixLossFn, KLDivRegressLossFn
-    if args["loss_metric"] == "mdn":
-        return MDNLossFn(args)
-    elif args["loss_metric"].startswith("mdn_"):
-        return MDNMixLossFn(args)
-    elif args["loss_metric"] == "kl_div":
-        return KLDivRegressLossFn(args)
-    w_e, w_f, w_q, w_p = 1, args["force_weight"], args["charge_weight"], args["dipole_weight"]
-    loss_fn = LossFn(w_e=w_e, w_f=w_f, w_q=w_q, w_p=w_p, config_dict=args, **args)
+    if cfg["loss_metric"] == "mdn":
+        return MDNLossFn(cfg)
+    elif cfg["loss_metric"].startswith("mdn_"):
+        return MDNMixLossFn(cfg)
+    elif cfg["loss_metric"] == "kl_div":
+        return KLDivRegressLossFn(cfg)
+    w_e, w_f, w_q, w_p = 1, cfg["force_weight"], cfg["charge_weight"], cfg["dipole_weight"]
+    loss_fn = LossFn(w_e=w_e, w_f=w_f, w_q=w_q, w_p=w_p, config_dict=cfg, **cfg)
     return loss_fn
 
 
