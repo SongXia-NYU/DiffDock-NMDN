@@ -1,12 +1,17 @@
 #!/bin/bash
 #
-#SBATCH --job-name=lit-pcba
+#SBATCH --job-name=xgb-casf-screen
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
-#SBATCH --time=2:00:00
-#SBATCH --mem=8GB
+#SBATCH --time=8:00:00
+#SBATCH --mem=4GB
+#SBATCH --array=0-99
 #SBATCH --mail-type=END,FAIL,TIME_LIMIT
 #SBATCH --mail-user=songxia23@gmail.com
+
+module purge
+
+if [ "$SLURM_ARRAY_TASK_ID" == "" ]; then SLURM_ARRAY_TASK_ID=$1; fi
 
 MGLPATH=/softwares/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs
 PYTHONPATH=/scratch/sx801/scripts/delta_LinF9_XGB/script:/scratch/sx801/scripts/DiffDock-NMDN
@@ -19,4 +24,4 @@ singularity exec  \
     --overlay /home/sx801/softwares.sqf \
     /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
     bash -c "source /ext3/env.sh; conda activate py2.7; export PYTHONPATH=$MGLPATH:$PYTHONPATH; \
-        /ext3/miniconda3/bin/python $@ "
+        /ext3/miniconda3/bin/python xgb_casf_screening.py --array_id $SLURM_ARRAY_TASK_ID "

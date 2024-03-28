@@ -206,7 +206,7 @@ class CasfScoreCalculator(TrainedFolder):
             this_screening_result = screening_result[key]
             info_df = pd.DataFrame({"sample_id": this_screening_result["sample_id"].view(-1).cpu().numpy(),
                                       "score": self.pred2score(this_screening_result["PROP_PRED"]),
-                                      "score_mdn": this_screening_result["PROP_PRED_MDN"].cpu().numpy()})
+                                      "score_mdn": this_screening_result["MDN_LOGSUM_DIST2_REFDIST2"].cpu().numpy()})
             pdb = key.split("@")[-1]
             info_df = info_df.astype({"sample_id": int}).set_index("sample_id")
             info_df = info_df.join(
@@ -222,7 +222,6 @@ class CasfScoreCalculator(TrainedFolder):
                 this_df = info_df[info_df["binder_pdb"] == binder_pdb].reset_index()
                 if n_mdn_pose is not None:
                     # numpy argsort return accending order so I added "-"
-                    breakpoint()
                     mdn_decend = np.argsort(-this_df["score_mdn"].values)
                     this_df.loc[mdn_decend[n_mdn_pose:].tolist(), "score"] = -999999.
                 result_df.append(this_df)

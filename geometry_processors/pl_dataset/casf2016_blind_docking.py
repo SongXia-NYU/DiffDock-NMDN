@@ -21,18 +21,18 @@ class CASF2016BlindDocking:
         pdbs = [osp.basename(folder) for folder in folders]
         return pdbs
     
-    def get_diffdock_rank1(self, pdb: str):
+    def get_docking_diffdock_rank1(self, pdb: str):
         return osp.join(self.dock_root, "raw_predicts", pdb, "rank1.sdf")
     
-    def get_nmdn_rank1(self, pdb: str):
-        if pdb not in self.nmdn_score_df.index:
-            return self.get_diffdock_rank1(pdb)
-        src_file: str = self.nmdn_score_df.loc[pdb, "src"]
+    def get_docking_nmdn_rank1(self, pdb: str):
+        if pdb not in self.docking_nmdn_score_df.index:
+            return self.get_docking_diffdock_rank1(pdb)
+        src_file: str = self.docking_nmdn_score_df.loc[pdb, "src"]
         src_file_name = osp.basename(src_file)
         return osp.join(self.dock_root, "raw_predicts", pdb, src_file_name)
 
     @lazy_property
-    def nmdn_score_df(self):
+    def docking_nmdn_score_df(self) -> pd.DataFrame:
         nmdn_csv = "/scratch/sx801/scripts/raw_data/diffdock/test/infer_exp_casf_dock021_exp_pl_534_2023-06-25_002147/pred.csv"
         nmdn_df = pd.read_csv(nmdn_csv)
         nmdn_df["pdb_id"] = nmdn_df["file_handle"].map(lambda s: s.split(".")[0])
@@ -79,3 +79,26 @@ class CASF2016BlindDocking:
         screen_info_df = pd.DataFrame(screen_info_dict).set_index("file_handle")
         screen_info_df.to_csv(screen_info_csv)
         return screen_info_df
+    
+    def get_screening_diffdock_rank1(self, tgt_pdb: str, lig_pdb: str):
+        return osp.join(self.screen_root, "pose_diffdock", "raw_predicts", f"{tgt_pdb}_{lig_pdb}", "rank1.sdf")
+    
+    def get_screening_nmdn_rank1(self, tgt_pdb: str, lig_pdb: str):
+        lig_str = self.screening_nmdn_score_df.loc[tgt_pdb, lig_pdb]["#code_ligand_num"]
+        lig_rank = int(lig_str.split("_")[-1])
+        possible_files = glob(osp.join(self.screen_root, "pose_diffdock", "raw_predicts", f"{tgt_pdb}_{lig_pdb}", f"rank{lig_rank}_confidence*.sdf"))
+        return possible_files[0]
+    
+    @lazy_property
+    def screening_nmdn_score_df(self) -> pd.DataFrame:
+        droot = "/vast/sx801/geometries/CASF-2016-BlindDocking/screening/exp_pl534_screening_scores/screening_scores_MDN_LOGSUM_DIST2_REFDIST2"
+        concat_dfs = []
+        for target_df in glob(osp.join(droot, "????_score.dat")):
+            target_pdb = osp.basename(target_df).split("_")[0]
+            score_df = pd.read_csv(target_df, sep=" ")
+            score_df["lig_pdb"] = score_df["#code_ligand_num"].map(lambda s: s.split("_")[0])
+            score_df = score_df.sort_values("score", ascending=False).drop_duplicates("lig_pdb")
+            score_df["target_pdb"] = [target_pdb] * score_df.shape[0]
+            concat_dfs.append(score_df)
+        concat_dfs = pd.concat(concat_dfs).set_index(["target_pdb", "lig_pdb"])
+        return concat_dfs

@@ -327,6 +327,9 @@ class Tester(TrainedFolder):
         with open(osp.join(self.save_root, "chk.json")) as f:
             chk_dict = json.load(f)
         for key in chk_dict.keys():
+            # backward compatibility
+            if not hasattr(self, key):
+                continue
             if getattr(self, key) is None:
                 setattr(self, key, chk_dict[key])
 
