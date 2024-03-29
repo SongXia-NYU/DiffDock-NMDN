@@ -9,16 +9,11 @@ from utils.utils_functions import get_device
 
 
 class TestedFolderReader(Tester):
-    def __init__(self, folder_name, tested_folder_name,
-                 root="/home/carrot_of_rivia/Documents/PycharmProjects/raw_data/exp_pl"):
-        folder = folder_name
-        if root is not None:
-            folder = osp.join(root, folder_name)
-        test_folder = osp.join(folder, tested_folder_name)
+    def __init__(self, test_folder=None):
         test_folder = glob(test_folder)
         assert len(test_folder) == 1, str(test_folder)
         test_folder = test_folder[0]
-        super(TestedFolderReader, self).__init__(folder)
+        super(TestedFolderReader, self).__init__(osp.dirname(test_folder))
         self._test_dir = test_folder
 
         self._result_mapper = None

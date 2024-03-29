@@ -27,7 +27,7 @@ hartree2ev = Hartree / eV
 
 
 class DummyIMDataset(InMemoryDataset):
-    def __init__(self, data_root, dataset_name, config_args, split=None, sub_ref=False, convert_unit=True, collate=False,
+    def __init__(self, data_root, dataset_name, config_args, split=None, sub_ref=False,
                  **kwargs):
         self.sub_ref = sub_ref
         self.dataset_name = dataset_name
@@ -37,21 +37,14 @@ class DummyIMDataset(InMemoryDataset):
         from utils.data.DataPostProcessor import DataPostProcessor
         self.pre_processor = DataPreprocessor(config_args)
         self.post_processor = DataPostProcessor(config_args)
-        if collate:
-            self.data, self.slices = InMemoryDataset.collate(torch.load(self.processed_paths[0]))
-        else:
-            self.data, self.slices = torch.load(self.processed_paths[0])
+        self.load_data_slices()
         if not isinstance(self.data, (MyData, HeteroData)):
             self.data = MyData.from_data(self.data)
         self.infuse_atom_mol_batch()
         self.infuse_sample_id()
         self.infuse_pdb()
         self.train_index, self.val_index, self.test_index = None, None, None
-        self.parse_split_index(split)
-
-        if self.sub_ref:
-            warnings.warn("sub_ref is deprecated")
-            preprocess_dataset(osp.join(osp.dirname(__file__), "GaussUtils"), self, convert_unit)
+        self.parse_split_index()
 
         if config_args is None:
             return
@@ -70,6 +63,43 @@ class DummyIMDataset(InMemoryDataset):
             unwanted_key = ('protein', 'interaction', 'protein')
             del self.data[unwanted_key]
             if unwanted_key in self.slices: del self.slices[unwanted_key]
+
+    def load_data_slices(self):
+        # one single data set
+        if len(self.processed_paths) == 1:
+            self.data, self.slices = torch.load(self.processed_paths[0])
+            return
+        
+        from utils.eval.TestedFolderReader import TestedFolderReader
+        
+        # multiple parts: Only used in DiffDock-NMDN: concat them
+        diffdock_nmdn_result: str = self.cfg["diffdock_nmdn_result"]
+        assert diffdock_nmdn_result is not None
+        nmdn_reader = TestedFolderReader(diffdock_nmdn_result)
+        nmdn_score_dfs = []
+        for key in nmdn_reader.record_mapper.keys():
+            record_df: pd.DataFrame = nmdn_reader.record_mapper[key].set_index("sample_id")
+            nmdn_score = nmdn_reader.result_mapper[f"test@{key}"]["MDN_LOGSUM_DIST2_REFDIST2"].cpu().numpy()
+            sample_id = nmdn_reader.result_mapper[f"test@{key}"]["sample_id"].cpu().numpy()
+            score_df = pd.DataFrame({"sample_id": sample_id, "nmdn_score": nmdn_score}).set_index("sample_id")
+            record_df = record_df.join(score_df)
+            nmdn_score_dfs.append(record_df)
+        nmdn_score_dfs = pd.concat(nmdn_score_dfs)
+        nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: s.split(".")[0])
+        nmdn_score_dfs = nmdn_score_dfs.dropna().sort_values("nmdn_score", ascending=False).drop_duplicates("pdb_id")
+        selected_fl = set(nmdn_score_dfs["file_handle"].values.tolist())
+
+        selected_data_list = []
+        for ds_name in tqdm(self.processed_file_names, desc="Loading diffdock-nmdn datasets"):
+            dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, config_args=None)
+            for i in range(len(dummy_ds)):
+                this_d = dummy_ds[i]
+                if this_d.file_handle in selected_fl:
+                    selected_data_list.append(this_d.clone())
+            del dummy_ds
+            
+            if self.cfg["debug_mode"]: break
+        self.data, self.slices = InMemoryDataset.collate(selected_data_list)
 
     def infuse_pdb(self):
         if hasattr(self.data, "pdb"):
@@ -127,10 +157,31 @@ class DummyIMDataset(InMemoryDataset):
         self.data.sample_id = torch.arange(size).long()
         self.slices["sample_id"] = copy.copy(self.slices[cp_key])
 
-    def parse_split_index(self, split: Optional[str]) -> None:
+    def parse_split_index(self) -> None:
+        split: Optional[str] = self.split
         if split is None:
             # if no split provided, default to all test
             self.test_index: torch.Tensor = torch.arange(len(self))
+            return
+        
+        if split == "pdbbind_diffdock_nmdn":
+            rtm_val = "/scratch/sx801/scripts/RTMScore/data/val_set1"
+            val_set_pdbs = pd.read_csv(rtm_val, header=None).values
+            val_set_pdbs = set(val_set_pdbs.reshape(-1).tolist())
+            casf_pdbs = [osp.basename(f) for f in glob("/CASF-2016-cyang/coreset/????")]
+            casf_pdbs = set(casf_pdbs)
+            assert len(casf_pdbs) == 285, casf_pdbs
+            train_index = []
+            val_index = []
+            for idx, pdb in enumerate(self.data.pdb):
+                if pdb in casf_pdbs:
+                    continue
+                if pdb in val_set_pdbs:
+                    val_index.append(idx)
+                    continue
+                train_index.append(idx)
+            self.train_index = torch.as_tensor(train_index)
+            self.val_index = torch.as_tensor(val_index)
             return
         
         if split == "random_split":
@@ -224,7 +275,14 @@ class DummyIMDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [self.dataset_name]
+        possible_files: List[str] = glob(osp.join(self.processed_dir, self.dataset_name))
+        assert len(possible_files) > 0, f"File: {osp.join(self.processed_dir, self.dataset_name)} not found!"
+        if len(possible_files) == 1:
+            return [self.dataset_name]
+        
+        # multiple files, trying to concat them for training
+        file_names = [osp.relpath(f, self.processed_dir) for f in possible_files]
+        return file_names
 
     def download(self):
         pass

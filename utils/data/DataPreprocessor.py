@@ -6,9 +6,15 @@ from torch_geometric.data import HeteroData
 
 class DataPreprocessor:
     def __init__(self, cfg: dict) -> None:
+        self.cfg = cfg
+        if cfg is None:
+            return
         self.proc_lit_pcba = cfg["proc_lit_pcba"]
 
     def __call__(self, data: Union[MyData, HeteroData], idx: int) -> Union[MyData, HeteroData]:
+        if self.cfg is None:
+            return data
+        
         if self.proc_lit_pcba:
             file_handle: str = data.file_handle
             rank: int = data.rank.cpu().item()
