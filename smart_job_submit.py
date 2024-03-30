@@ -6,14 +6,14 @@ from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
 from argparse import ArgumentParser
 from typing import List
 
-from utils.job_submit.regular_job_submitters import SingleJobSubmitter
+from utils.job_submit.regular_job_submitters import JobSubmitter
 from utils.job_submit.JobSubmitterFactory import JobSubmitterFactory
 
 class BatchJobSubmitter:
     def __init__(self, cfg: dict) -> None:
         targets = cfg["targets"]
         factory = JobSubmitterFactory(cfg)
-        self.job_submitters: List[SingleJobSubmitter] = [factory.get_submitter(i) for i in targets]
+        self.job_submitters: List[JobSubmitter] = [factory.get_submitter(i) for i in targets]
 
     def run(self):
         for submitter in self.job_submitters: submitter.run()

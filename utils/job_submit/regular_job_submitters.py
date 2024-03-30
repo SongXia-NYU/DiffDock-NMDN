@@ -8,16 +8,34 @@ from utils.train.trainer import data_provider_solver
 from utils.eval.trained_folder import TrainedFolder, read_config_file
 from utils.utils_functions import lazy_property
 
-class SingleJobSubmitter:
+class JobSubmitter:
     def __init__(self, debug) -> None:
-        self._sbatch_str = None
         self.debug = debug
-
-        self._job_template = None
-        self._info4tmpl = None
 
     def run(self):
         raise NotImplementedError
+    
+    @staticmethod
+    def overlay_line(data_root, overlay_list) -> str:
+        overlay = None
+        all_overlays = ["/scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro"]
+        if overlay_list is not None:
+            all_overlays.extend([osp.join(data_root, sqf) for sqf in overlay_list])
+        for sqf in all_overlays:
+            if overlay is None:
+                overlay = sqf
+            else:
+                overlay += f" --overlay {sqf}"
+            assert osp.exists(sqf.split(":")[0]), sqf
+        return overlay.replace("$", "\$")
+
+class TemplateJobSubmitter(JobSubmitter):
+    def __init__(self, debug) -> None:
+        super().__init__(debug)
+
+        self._sbatch_str = None
+        self._job_template = None
+        self._info4tmpl = None
 
     @lazy_property
     def sbatch_str(self) -> str:
@@ -31,21 +49,7 @@ class SingleJobSubmitter:
     def info4tmpl(self) -> Dict[str, str]:
         raise NotImplementedError
 
-    @staticmethod
-    def overlay_parser(data_root, overlay_list):
-        overlay = None
-        all_overlays = ["/scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro"]
-        if overlay_list is not None:
-            all_overlays.extend([osp.join(data_root, sqf) for sqf in overlay_list])
-        for sqf in all_overlays:
-            if overlay is None:
-                overlay = sqf
-            else:
-                overlay += f" --overlay {sqf}"
-            assert osp.exists(sqf.split(":")[0]), sqf
-        return overlay.replace("$", "\$")
-
-class TrainJobSubmitter(SingleJobSubmitter):
+class TrainJobSubmitter(TemplateJobSubmitter):
     def __init__(self, config_file, debug) -> None:
         super().__init__(debug)
         self.config_file = config_file
@@ -77,7 +81,7 @@ class TrainJobSubmitter(SingleJobSubmitter):
     @property
     def info4tmpl(self):
         if self._info4tmpl is None:
-            info = {"config_file": self.config_file, "ds_overlay": self.overlay_parser(self.args["data_root"], self.args["add_sqf"]),
+            info = {"config_file": self.config_file, "ds_overlay": self.overlay_line(self.args["data_root"], self.args["add_sqf"]),
                     "job_name": osp.basename(self.args["folder_prefix"]), "mem": self.args["mem"]}
 
             if self.update_bn_needed:
@@ -104,7 +108,7 @@ class TrainJobSubmitter(SingleJobSubmitter):
         return self._args
 
 
-class TestJobSubmitter(SingleJobSubmitter):
+class TestJobSubmitter(TemplateJobSubmitter):
     """
     Running testing jobs.
     """
@@ -156,7 +160,7 @@ class TestJobSubmitter(SingleJobSubmitter):
     def info4tmpl(self):
         info = {}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_parser(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
+        info["ds_overlay"] = self.overlay_line(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
         info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
         return info
 

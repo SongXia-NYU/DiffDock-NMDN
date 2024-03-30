@@ -79,7 +79,7 @@ class CASF_JobSubmitter(TestJobSubmitter):
                 "overlay_docking": overlay_docking.replace("$", "\$"), "overlay_screening": overlay_screening.replace("$", "\$"),
                 "docking_config": docking_config, "screening_config": screening_config, "casf_extra": casf_extra}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_parser(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
+        info["ds_overlay"] = self.overlay_line(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
         info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
         return info
     

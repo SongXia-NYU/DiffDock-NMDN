@@ -2,7 +2,7 @@ import os.path as osp
 
 from utils.job_submit.test_lit_pcba_submitters import LIT_PCBA_JobSubmitter
 from utils.job_submit.test_prot_pep_submitters import ProtPepTestSubmitter
-from utils.job_submit.regular_job_submitters import SingleJobSubmitter, TestJobSubmitter, TrainJobSubmitter
+from utils.job_submit.regular_job_submitters import TemplateJobSubmitter, TestJobSubmitter, TrainJobSubmitter
 from utils.job_submit.test_casf_job_submitters import CASF_BlindDockJobSubmitter, CASF_JobSubmitter
 
 
@@ -10,7 +10,7 @@ class JobSubmitterFactory:
     def __init__(self, cfg: dict):
         self.cfg = cfg
 
-    def get_submitter(self, tgt: str) -> SingleJobSubmitter:
+    def get_submitter(self, tgt: str) -> TemplateJobSubmitter:
         cfg = self.cfg
         debug = cfg["debug"]
         wait = cfg["wait"]
@@ -29,7 +29,7 @@ class JobSubmitterFactory:
             return ProtPepTestSubmitter(debug, tgt)
         return self.parse_submitter_from_args(tgt)
 
-    def parse_submitter_from_args(self, tgt: str) -> SingleJobSubmitter:
+    def parse_submitter_from_args(self, tgt: str) -> TemplateJobSubmitter:
         cfg = self.cfg
         debug = cfg["debug"]
         wait = cfg["wait"]

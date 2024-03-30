@@ -66,7 +66,13 @@ class DummyIMDataset(InMemoryDataset):
 
     def load_data_slices(self):
         # one single data set
-        if len(self.processed_paths) == 1:
+        if self.cfg is None:
+            assert len(self.processed_paths) == 1, str(self.processed_paths)
+            self.data, self.slices = torch.load(self.processed_paths[0])
+            return
+        
+        if len(self.processed_paths) == 1 and \
+            self.cfg["diffdock_nmdn_result"] is None:
             self.data, self.slices = torch.load(self.processed_paths[0])
             return
         
