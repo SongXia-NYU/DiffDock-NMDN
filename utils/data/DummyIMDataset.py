@@ -85,14 +85,17 @@ class DummyIMDataset(InMemoryDataset):
         nmdn_score_dfs = []
         for key in nmdn_reader.record_mapper.keys():
             record_df: pd.DataFrame = nmdn_reader.record_mapper[key].set_index("sample_id")
-            nmdn_score = nmdn_reader.result_mapper[f"test@{key}"]["MDN_LOGSUM_DIST2_REFDIST2"].cpu().numpy()
-            sample_id = nmdn_reader.result_mapper[f"test@{key}"]["sample_id"].cpu().numpy()
+            test_result_dict: dict = nmdn_reader.record_key2result(key)
+            nmdn_score = test_result_dict["MDN_LOGSUM_DIST2_REFDIST2"].cpu().numpy()
+            sample_id = test_result_dict["sample_id"].cpu().numpy()
             score_df = pd.DataFrame({"sample_id": sample_id, "nmdn_score": nmdn_score}).set_index("sample_id")
             record_df = record_df.join(score_df)
             nmdn_score_dfs.append(record_df)
         nmdn_score_dfs = pd.concat(nmdn_score_dfs)
         nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: s.split(".")[0])
         nmdn_score_dfs = nmdn_score_dfs.dropna().sort_values("nmdn_score", ascending=False).drop_duplicates("pdb_id")
+        if "rank" in nmdn_score_dfs.columns:
+            nmdn_score_dfs["file_handle"] = nmdn_score_dfs.apply(lambda x: x["file_handle"] + "." + str(x["rank"]), axis=1).values
         selected_fl = set(nmdn_score_dfs["file_handle"].values.tolist())
 
         selected_data_list = []
@@ -100,7 +103,10 @@ class DummyIMDataset(InMemoryDataset):
             dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, config_args=None)
             for i in range(len(dummy_ds)):
                 this_d = dummy_ds[i]
-                if this_d.file_handle in selected_fl:
+                fl = this_d.file_handle
+                if hasattr(this_d, "rank"):
+                    fl += "." + str(this_d.rank.item())
+                if fl in selected_fl:
                     selected_data_list.append(this_d.clone())
             del dummy_ds
             

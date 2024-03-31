@@ -9,3 +9,4 @@
 --atom_prop_ds=CASF-2016-BlindDockingScreening_ligmolprop_frag20sol_012_ens.allh.pyg
 --lig_identifier_src=file_handle
 --lig_identifier_dst=file_handle
+--diffdock_nmdn_result=exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-screening_2024-03-27_005509

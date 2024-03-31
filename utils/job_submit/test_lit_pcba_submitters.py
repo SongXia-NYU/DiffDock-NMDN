@@ -1,5 +1,6 @@
 from glob import glob
 from typing import Optional
+from geometry_processors.pl_dataset.lit_pcba_reader import TARGETS
 from utils.job_submit.regular_job_submitters import TestJobSubmitter
 from utils.utils_functions import lazy_property
 
@@ -49,7 +50,7 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
         if self._sbatch_str is not None:
             return self._sbatch_str
 
-        ALL_TARGETS = ["ESR1_ant"]
+        ALL_TARGETS = TARGETS
         model_header = self.job_template.split("##BEGIN_MODEL_SCRIPT")[0]
         model_script = self.job_template.split("##BEGIN_MODEL_SCRIPT")[-1].split("##END_MODEL_SCRIPT")[0]
         score_header = self.job_template.split("##END_MODEL_SCRIPT")[-1].split("##BEGIN_SCORE_SCRIPT")[0]

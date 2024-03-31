@@ -52,6 +52,12 @@ class TestedFolderReader(Tester):
             self._result_mapper = mapper
         return self._result_mapper
 
+    def record_key2result(self, key: str, split="test") -> dict:
+        if len(self.record_mapper.keys()) == 1:
+            return self.result_mapper[split]
+        
+        return self.result_mapper[f"{split}@{key}"]
+
     @property
     def record_mapper(self):
         if self._record_mapper is None:
