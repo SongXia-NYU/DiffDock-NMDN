@@ -46,6 +46,11 @@ class DummyIMDataset(InMemoryDataset):
         self.train_index, self.val_index, self.test_index = None, None, None
         self.parse_split_index()
 
+        unwanted_key = ('protein', 'interaction', 'protein')
+        if unwanted_key in self.slices.keys():
+            del self.data[unwanted_key]
+            del self.slices[unwanted_key]
+
         if config_args is None:
             return
         
@@ -58,11 +63,6 @@ class DummyIMDataset(InMemoryDataset):
         self.infuse_rmsd_info: bool = (config_args["rmsd_csv"] is not None) and (not self.no_pkd_score)
         if self.infuse_rmsd_info:
             self.rmsd_query = RMSD_Query(config_args)
-
-        if config_args["proc_lit_pcba"]:
-            unwanted_key = ('protein', 'interaction', 'protein')
-            del self.data[unwanted_key]
-            if unwanted_key in self.slices: del self.slices[unwanted_key]
 
     def load_data_slices(self):
         # one single data set

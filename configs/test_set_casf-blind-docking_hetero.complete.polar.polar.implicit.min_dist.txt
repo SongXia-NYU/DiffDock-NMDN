@@ -5,3 +5,4 @@
 --record_name=sample_id
 --record_name=file_handle
 --valid_batch_size=32
+--diffdock_nmdn_result=exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-docking_2024-03-31_174131

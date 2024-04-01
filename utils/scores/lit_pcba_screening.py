@@ -38,16 +38,20 @@ class LIT_PCBA_ScreeningWrapper(TrainedFolder):
         score_csv = osp.join(self.dst_dir, "score.csv")
         if not osp.exists(score_csv):
             self.load_score_info()
-        
+
+        # pKd only
+        calc_cls = DiffDockLIT_PCBA_Screen if self.diffdock else LIT_PCBA_Screen
+        pkd_calc = calc_cls(score_csv, DROOT, self.dst_dir, "score")
+        pkd_calc.run()
+
         # we only want to read the columns
         score_df = pd.read_csv(score_csv, nrows=1)
-        
+        if "score_mdn" not in score_df.columns: return self.cleanup_csv()
+
         # NMDN only
         calc_cls = DiffDockLIT_PCBA_Screen if self.diffdock else LIT_PCBA_Screen
         nmdn_calc = calc_cls(score_csv, DROOT, self.dst_dir, "score_MDN_LOGSUM_DIST2_REFDIST2")
         nmdn_calc.run()
-
-        if "score_mdn" not in score_df.columns: return self.cleanup_csv()
         
         # NMDN + pKd
         mdn_col_name = "score_MDN_LOGSUM_DIST2_REFDIST2"

@@ -678,7 +678,7 @@ def option_solver(option_txt, type_conversion=False, return_base=False):
         return result
 
 
-def preprocess_config(config_dict):
+def preprocess_config(config_dict: dict):
     config_dict = copy.deepcopy(config_dict)
     # long long ago, I did not know that action="store_true" exists.
     for bool_key in ["debug_mode", "auto_sol", "reset_optimizer", "target_nodes", "reset_output_layers",
@@ -695,11 +695,9 @@ def preprocess_config(config_dict):
         config_dict["use_trained_model"] = config_dict["use_trained_model"] \
             if config_dict["use_trained_model"].lower() != "false" else False
     config_dict["use_swag"] = (config_dict["uncertainty_modify"].split('_')[0] == 'swag')
-    # config_dict["n_atom_embedding"] = 95
-
-    # config_dict["n_output"] = len(config_dict["target_names"])
-    # if config_dict["action"].endswith("_and_QD"):
-    #     config_dict["n_output"] += 1
+    for key in config_dict.keys():
+        if config_dict[key] == "$None":
+            config_dict[key] = None
     return config_dict
 
 

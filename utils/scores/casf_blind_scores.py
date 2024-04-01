@@ -33,7 +33,9 @@ class CASFBlindScreenScore(CasfScoreCalculator):
 
             # MDN select pose, then pkd score screen
             this_df["lig_pdb"] = this_df["#code_ligand_num"].map(lambda s: s.split("_")[0])
-            for mdn_name in ["MDN_SUM_DIST2_REF", "MDN_LOGSUM_REF", "MDN_LOGSUM_DIST2_REFDIST2"]:
+            for mdn_name in ["MDN_LOGSUM_DIST2_REFDIST2"]:
+                if mdn_name not in this_df.columns:
+                    continue
                 computed_keys.add(f"{mdn_name}_PKd")
                 pose_selected_df = this_df.sort_values(mdn_name, ascending=False).drop_duplicates("lig_pdb")
                 resdir = osp.join(self.save_root, f"screening_scores_{mdn_name}_PKd")
@@ -111,9 +113,7 @@ class CASFBlindScreenScore(CasfScoreCalculator):
 
     @lazy_property
     def blind_screening_reader(self) -> TestedFolderReader:
-        return TestedFolderReader(osp.basename(self.folder_name),
-                    osp.basename(self.blind_screening_test_folder),
-                    osp.dirname(self.folder_name))
+        return TestedFolderReader(self.blind_screening_test_folder)
     
     @lazy_property
     def blind_screening_test_folder(self):
@@ -166,6 +166,9 @@ class CASFBlindDockScore(CasfScoreCalculator):
 
     def mixed_mdn_pkd_score(self, out_dfs: List[pd.DataFrame], mdn_name: str):
         test_res: dict = self.blind_docking_reader.result_mapper["test"]
+        if mdn_name not in test_res:
+            print(f"NMDN score: {mdn_name} not found, skipping...")
+            return
         test_record: pd.DataFrame = self.blind_docking_reader.only_record().set_index("sample_id")
 
         pkd_score = test_res["PROP_PRED"].numpy().reshape(-1)
@@ -216,9 +219,7 @@ class CASFBlindDockScore(CasfScoreCalculator):
     
     @lazy_property
     def blind_docking_reader(self) -> TestedFolderReader:
-        return TestedFolderReader(osp.basename(self.folder_name),
-                    osp.basename(self.blind_docking_test_folder),
-                    osp.dirname(self.folder_name))
+        return TestedFolderReader(self.blind_docking_test_folder)
     
     @lazy_property
     def blind_docking_test_folder(self):
@@ -236,7 +237,7 @@ class CASFBlindDockScore(CasfScoreCalculator):
         test_ds_args: dict = self.docking_ds_cfg
         data_root: str = test_ds_args["data_root"]
         ds_name = option_solver(test_ds_args["data_provider"])["dataset_name"].split(".pyg")[0]
-        rmsd_info_csv: str = osp.join(osp.dirname(data_root), f"{ds_name}.rmsd.csv")
+        rmsd_info_csv: str = osp.join(osp.dirname(data_root), f"{ds_name}.rmsd2crystal.csv")
         rmsd_info_df: pd.DataFrame = pd.read_csv(rmsd_info_csv).set_index("file_handle")
         return rmsd_info_df
 

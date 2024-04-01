@@ -53,6 +53,7 @@ singularity exec --nv \
             --blind-dock --docking_config {docking_config} "
 
 singularity exec --nv \
+            --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             --overlay /scratch/sx801/singularity-envs/esm-gearnet-25GB-500K.ext3:ro \
             --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \

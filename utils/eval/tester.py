@@ -23,7 +23,7 @@ from utils.data.DummyIMDataset import DummyIMDataset
 from utils.data.LargeDataset import LargeDataset
 from utils.LossFn import MDNLossFn, MDNMixLossFn
 from utils.eval.trained_folder import TrainedFolder, ds_from_args
-from utils.utils_functions import remove_handler, add_parser_arguments, init_model_test, get_device
+from utils.utils_functions import preprocess_config, remove_handler, add_parser_arguments, init_model_test, get_device
 
 
 class Tester(TrainedFolder):
@@ -148,6 +148,7 @@ class Tester(TrainedFolder):
             explicit_ds_args["prot_embedding_root"] = None
         self._explicit_ds_args = explicit_ds_args
         self._explicit_ds_args.update(self.additional_args)
+        self._explicit_ds_args = preprocess_config(self._explicit_ds_args)
         return self._explicit_ds_args
     
     @staticmethod
