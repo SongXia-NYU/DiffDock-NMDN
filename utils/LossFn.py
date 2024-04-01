@@ -197,7 +197,7 @@ class MDNLossFn(BaseLossFn):
         # ignore auxillary task, only make predictions
         self.only_predict = False
         # compute external MDN scores: normalized scores, max MDN scores, reference at 6.5A, etc...
-        self.compute_external_mdn: bool = config_dict.get("compute_external_mdn", False)
+        self.compute_external_mdn: bool = config_dict.get("compute_external_mdn", False) or config_dict["nmdn_eval"]
         self.nmdn_calculator = NMDN_Calculator(config_dict)
         # distance coefficient when evaluating
         if config_dict["val_pair_prob_dist_coe"] is not None:

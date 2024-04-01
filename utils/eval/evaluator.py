@@ -29,6 +29,9 @@ class Evaluator:
         self.loss: float = 0.
         self.loss_detail: dict = None
 
+    def __call__(self, *args, **kwds):
+        return self.compute_val_loss(*args, **kwds)
+
     @torch.no_grad()
     def compute_val_loss(self, model: nn.Module, data_loader: DataLoader, loss_fn: BaseLossFn):
         self.init_vars()
@@ -41,6 +44,8 @@ class Evaluator:
                 logging.error(f"InitEdgeRotError during validation: {str(e)}, skipping {val_data.pdb}")
                 continue
             aggr_loss, batch_detail = loss_fn(model_out, val_data, False, True, mol_lvl_detail=self.mol_lvl_detail)
+            if self.cfg["nmdn_eval"]:
+                aggr_loss = -batch_detail["MDN_LOGSUM_DIST2_REFDIST2"].sum().cpu()
             self.record_detail(aggr_loss, batch_detail)
             self.n_batchs += 1
             self.valid_size += batch_detail["n_units"]

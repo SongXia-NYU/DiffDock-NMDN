@@ -901,6 +901,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("--val_pair_prob_dist_coe", default=None, type=str, help="regularize pair MDN prob by pair distance: inverse | inverse_square")
     parser.add_argument("--hist_pp_intra_mdn", action="store_true")
     parser.add_argument("--eval_per_step", type=int, default=None)
+    parser.add_argument("--nmdn_eval", action="store_true", help="Use NMDN score as evaluation metric")
     #----------------------------------------------------------------------------------------------#
 
     #----------------------------------------Data Arguments----------------------------------------#

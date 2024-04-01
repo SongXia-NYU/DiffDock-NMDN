@@ -79,7 +79,11 @@ class Trainer:
         self.optimizer = None
         self.early_stop_count: int = 0
 
-    def train(self, explicit_split=None, ignore_valid=False, use_tqdm=False):
+    @lazy_property
+    def evaluator(self):
+        return Evaluator(False, self.config_processed)
+
+    def train(self, explicit_split=None, use_tqdm=False):
         if explicit_split is not None:
             if is_main:
                 torch.save(explicit_split, osp.join(self.run_directory, "runtime_split.pt"))
@@ -286,7 +290,7 @@ class Trainer:
         self.log('start training...')
 
         shadow_net = optimizer.shadow_model
-        val_res = val_step_new(shadow_net, self.val_loader, loss_fn)
+        val_res = self.evaluator(shadow_net, self.val_loader, loss_fn)
 
         valid_info_dict = OrderedDict(
             {"epoch": 0, "train_loss": -1, "valid_loss": val_res["loss"], "delta_time": time.time() - self.t0})
@@ -407,7 +411,7 @@ class Trainer:
         self.log('step {} ended, learning rate: {} '.format(self.step, this_lr))
         shadow_net = self.optimizer.shadow_model
         # self.log("prepare validation")
-        val_res = val_step_new(shadow_net, self.val_loader, loss_fn)
+        val_res = self.evaluator(shadow_net, self.val_loader, loss_fn)
         # self.log("scheduler stepping")
 
         # _loss_data_this_epoch = {'epoch': epoch, 't_loss': train_loss, 'v_loss': val_res['loss'],
