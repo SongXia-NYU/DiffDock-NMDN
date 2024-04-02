@@ -12,12 +12,12 @@ import subprocess
 
 
 class LIT_PCBA_JobSubmitter(TestJobSubmitter):
-    def __init__(self, run_dir, debug, ref, wait, target: Optional[str], lit_pcba_diffdock: bool) -> None:
+    def __init__(self, run_dir, debug, ref, wait, target: Optional[str], diffdock_nmdn: bool) -> None:
         super().__init__(run_dir, debug, ref, wait)
         self.run_dir: str = run_dir
         self.wait: bool = wait
-        self.target: Optional[str] = target
-        self.diffdock_nmdn: bool = lit_pcba_diffdock
+        self.target: str = target if target else "All"
+        self.diffdock_nmdn: bool = diffdock_nmdn
 
     @lazy_property
     def job_template(self):
@@ -34,17 +34,19 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
         info["test_folder"] = self.run_dir
         info["ds_overlay"] = self.overlay_line(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
         info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
-        if self.target is not None:
+        if self.target != "All":
             ds_name = self.ds_args["test_name"]
-            info["ds_config"] = f"configs/test_set_lit-pcba-{self.target.lower()}_{ds_name}.txt"
+            tgt_str = self.target.lower()
+            tgt_str += "-diffdock"
+            info["ds_config"] = f"configs/test_set_lit-pcba-{tgt_str}_{ds_name}.txt"
             assert osp.exists(info["ds_config"]), info["ds_config"]
-        info["target"] = self.target
+        info["target"] = self.target + "-diffdock"
         info["net_id"] = os.environ["USER"]
         return info
 
     @property
     def sbatch_str(self):
-        if self.target is not None:
+        if self.target != "All":
             return super().sbatch_str
 
         if self._sbatch_str is not None:
@@ -80,7 +82,7 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
 
     def run(self):
         name = osp.basename(self.folder_reader.args['folder_prefix'])
-        file_handle = f"{self.target}-{name}" if self.target else f"ALL-{name}"
+        file_handle = f"{self.target}-{name}"
         job_fn = f"SUBMIT_GPU_LIT-PCBA-{file_handle}.sbatch"
         job_score_fn = f"SUBMIT_CPU_LIT-PCBA-SCREEN-{self.target}-{name}.sbatch"
 
@@ -93,14 +95,13 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
         with open(osp.join(self.run_dir, job_score_fn), "w") as f:
             f.write(job_str_list[1])
 
-        if self.debug:
-            print(f"-----{self.run_dir}-----")
-            print(self.sbatch_str)
-            print("-------------")
-            return
-
         run_model_job = osp.join(self.run_dir, job_fn)
         run_score_job = osp.join(self.run_dir, job_score_fn)
+        if self.debug:
+            print(f">>>> {run_model_job}")
+            print(f">>>> {run_score_job}")
+            print("-------------")
+            return
         sub_job_model = f"sbatch {run_model_job}"
         if self.wait:
             # wait for the current trainning job finishes

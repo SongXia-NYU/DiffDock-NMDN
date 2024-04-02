@@ -9,7 +9,7 @@
 
 module purge
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/esm-gearnet-25GB-500K.ext3:ro \
             --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
@@ -21,7 +21,7 @@ singularity exec --nv \
 
 SCREENING_CONFIG={screening_config}
 if true && [[ -f "$SCREENING_CONFIG" ]]; then
-  singularity exec --nv \
+  /share/apps/singularity/bin/singularity exec --nv \
               --overlay /scratch/sx801/singularity-envs/esm-gearnet-25GB-500K.ext3:ro \
               --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \
               /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
@@ -42,7 +42,7 @@ fi
 #SBATCH --mail-type=END,FAIL,TIME_LIMIT
 #SBATCH --mail-user={net_id}@nyu.edu
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/esm-gearnet-25GB-500K.ext3:ro \
             --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
@@ -52,7 +52,7 @@ singularity exec --nv \
             --folder_names '{test_folder}' \
             --blind-dock --docking_config {docking_config} "
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             --overlay /scratch/sx801/singularity-envs/esm-gearnet-25GB-500K.ext3:ro \
             --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \

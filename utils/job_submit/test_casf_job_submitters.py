@@ -28,8 +28,8 @@ class CASF_JobSubmitter(TestJobSubmitter):
             f.write(job_str_list[1])
 
         if self.debug:
-            print(f"-----{self.run_dir}-----")
-            print(self.sbatch_str)
+            print(f">>> {model_job_sbatch}")
+            print(f">>> {score_job_sbatch}")
             print("-------------")
             return
 

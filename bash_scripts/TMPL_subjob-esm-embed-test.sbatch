@@ -9,7 +9,7 @@
 #SBATCH --mail-user={net_id}@nyu.edu
 module purge
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
             --overlay /scratch/sx801/data/CASF-2016-cyang.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \

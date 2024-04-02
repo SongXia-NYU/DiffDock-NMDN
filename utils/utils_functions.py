@@ -910,6 +910,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("--dataset_name", type=str, default=None, help="The PYG file of the dataset")
     parser.add_argument("--split", type=str, default=None, help="The split file of the dataset")
     parser.add_argument("--diffdock_nmdn_result", type=str, default=None, help="Use NMDN score to select input geometries for training.")
+    parser.add_argument("--diffdock_confidence", action="store_true", help="Use diffdock-confidence score to select input geometries. overwrites --diffdock_nmdn_result")
     parser.add_argument("--valid_size", type=int, default=None, help="Validation size")
     parser.add_argument("--split_seed", type=int, default=2333, help="Seed for random splitting.")
     parser.add_argument('--data_root', type=str, default="../dataProviders/data")

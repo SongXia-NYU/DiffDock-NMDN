@@ -5,13 +5,13 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=2
 #SBATCH --time=18:00:00
-#SBATCH --mem=20GB
+#SBATCH --mem=32GB
 
 ##BEGIN_MODEL_SCRIPT
 
 module purge
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/esm-gearnet-25GB-500K.ext3:ro \
             --overlay /vast/sx801/geometries/LIT-PCBA.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
@@ -37,7 +37,7 @@ singularity exec --nv \
 
 module purge
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \
             --overlay /vast/sx801/geometries/LIT-PCBA.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \

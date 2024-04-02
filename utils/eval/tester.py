@@ -17,13 +17,14 @@ import tqdm
 from torch.utils.data import Subset
 from torch_geometric.data import DataLoader
 
-from utils.train.trainer import val_step_new, data_provider_solver
+from utils.eval.evaluator import Evaluator
+from utils.train.trainer import data_provider_solver
 from utils.DataPrepareUtils import my_pre_transform, rm_atom
 from utils.data.DummyIMDataset import DummyIMDataset
 from utils.data.LargeDataset import LargeDataset
 from utils.LossFn import MDNLossFn, MDNMixLossFn
 from utils.eval.trained_folder import TrainedFolder, ds_from_args
-from utils.utils_functions import preprocess_config, remove_handler, add_parser_arguments, init_model_test, get_device
+from utils.utils_functions import lazy_property, preprocess_config, remove_handler, add_parser_arguments, init_model_test, get_device
 
 
 class Tester(TrainedFolder):
@@ -264,6 +265,10 @@ class Tester(TrainedFolder):
             info_df = pd.DataFrame(info)
             info_df.to_csv(osp.join(self.save_root, f"record_name_{ds_name}.csv"), index=False)
 
+    @lazy_property
+    def evaluator(self) -> Evaluator:
+        return Evaluator(False, self.explicit_ds_args)
+
     def eval_ds(self, this_ds, explicit_split, index_name):
         self.info(f"Testing on {index_name}")
         if self.ignore_train and index_name == "train_index":
@@ -299,7 +304,7 @@ class Tester(TrainedFolder):
             this_dl = tqdm.tqdm(this_dl, desc=index_name, total=len(this_ds)//batch_size)
 
         assert self.args["uncertainty_modify"] == 'none', self.args["uncertainty_modify"]
-        result = val_step_new(self.model, this_dl, self.loss_fn, mol_lvl_detail=True)
+        result = self.evaluator(self.model, this_dl, self.loss_fn)
         result["target_names"] = self.loss_fn.target_names
         torch.save(result, result_file)
 

@@ -995,11 +995,6 @@ def data_provider_solver(args, default_kw_args=None, ds_key="data_provider"):
         raise ValueError('Unrecognized dataset name: {} !'.format(name_base))
 
 
-def val_step_new(model, _data_loader, loss_fn: BaseLossFn, mol_lvl_detail=False, config_dict=None):
-    evaluator = Evaluator(mol_lvl_detail, config_dict)
-    return evaluator.compute_val_loss(model, _data_loader, loss_fn)
-
-
 def train(config_dict=None, data_provider=None, explicit_split=None, ignore_valid=False, use_tqdm=False):
     trainer = Trainer(config_dict, data_provider)
     trainer.train(explicit_split, ignore_valid, use_tqdm)

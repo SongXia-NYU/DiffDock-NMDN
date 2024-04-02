@@ -11,7 +11,7 @@
 
 module purge
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
@@ -20,7 +20,7 @@ singularity exec --nv \
             --explicit_ds_config configs/test_set_pp_test_af22_50_rankeds.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
@@ -29,7 +29,7 @@ singularity exec --nv \
             --explicit_ds_config configs/test_set_pp_test_decoys2_separated.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
@@ -39,7 +39,7 @@ singularity exec --nv \
 
 exit
 
-singularity exec --nv \
+/share/apps/singularity/bin/singularity exec --nv \
             --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \

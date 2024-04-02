@@ -39,7 +39,9 @@ class TemplateJobSubmitter(JobSubmitter):
 
     @lazy_property
     def sbatch_str(self) -> str:
-        return self.job_template.format(**self.info4tmpl, net_id=os.environ["USER"])
+        if "net_id" not in self.info4tmpl:
+            self.info4tmpl["net_id"] = os.environ["USER"]
+        return self.job_template.format(**self.info4tmpl)
 
     @property
     def job_template(self) -> str:

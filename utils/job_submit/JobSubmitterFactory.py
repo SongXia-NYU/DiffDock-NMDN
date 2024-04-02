@@ -20,9 +20,9 @@ class JobSubmitterFactory:
             return TrainJobSubmitter(tgt, debug)
 
         # Testing job from a trained directory
-        if cfg["lit_pcba"] or cfg["lit_pcba_diffdock"]:
+        if cfg["lit_pcba_diffdock"] or cfg["lit_pcba_diffdock_nmdn"]:
             return LIT_PCBA_JobSubmitter(tgt, debug, cfg["ref"], wait,
-                        cfg["target"], cfg["lit_pcba_diffdock"])
+                        cfg["target"], cfg["lit_pcba_diffdock_nmdn"])
         elif cfg["casf_diffdock"]:
             return CASF_BlindDockJobSubmitter(tgt, debug, cfg["ref"], wait)
         elif osp.basename(tgt.rstrip("/")).startswith(("exp_ppep_", "exp_pp_")):

@@ -75,11 +75,31 @@ class DummyIMDataset(InMemoryDataset):
             self.cfg["diffdock_nmdn_result"] is None:
             self.data, self.slices = torch.load(self.processed_paths[0])
             return
+
+        # Use diffdock sampled pose for training
+        if self.cfg["diffdock_confidence"]:
+            selected_data_list = []
+            for ds_name in tqdm(self.processed_file_names, desc="Loading diffdock-nmdn datasets"):
+                dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, config_args=None)
+                for i in range(len(dummy_ds)):
+                    this_d = dummy_ds[i]
+                    fl = this_d.file_handle
+                    if hasattr(this_d, "rank"):
+                        rank: int = this_d.rank.item()
+                    else:
+                        rank = int(fl.split("rank")[-1].split("_")[0])
+                    if rank == 1:
+                        selected_data_list.append(this_d.clone())
+                del dummy_ds
+                
+                if self.cfg["debug_mode"]: break
+            self.data, self.slices = InMemoryDataset.collate(selected_data_list)
+            return
         
         from utils.eval.TestedFolderReader import TestedFolderReader
-        
-        # multiple parts: Only used in DiffDock-NMDN: concat them
+        # DiffDock-NMDN selected poses only
         diffdock_nmdn_result: str = self.cfg["diffdock_nmdn_result"]
+        logging.info("Diffdock-NMDN: ", diffdock_nmdn_result)
         assert diffdock_nmdn_result is not None
         nmdn_reader = TestedFolderReader(diffdock_nmdn_result)
         nmdn_score_dfs = []
