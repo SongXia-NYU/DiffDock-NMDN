@@ -1,4 +1,5 @@
 import argparse
+from contextlib import contextmanager
 import copy
 import gc
 import logging
@@ -7,6 +8,7 @@ import os
 import os.path as osp
 import random
 import re
+import signal
 import time
 from collections import OrderedDict
 from datetime import datetime
@@ -1210,6 +1212,20 @@ def torchdrug_imports():
     return
     # They have to be imported before torchdrug for some reason, otherwise they will fail
     import torchvision
+
+class TimeoutException(Exception): pass
+
+@contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 
 if __name__ == '__main__':
     dummy_input = torch.rand(32, 160).double().cuda()
