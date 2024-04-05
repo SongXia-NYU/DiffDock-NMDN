@@ -1,7 +1,10 @@
 from collections import defaultdict
 import copy
+from functools import cached_property
 from glob import glob
+import hashlib
 import logging
+import os
 import os.path as osp
 import time
 import warnings
@@ -10,6 +13,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import copy
 import pandas as pd
+from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import ConcatDataset
 import torch_geometric
@@ -33,6 +37,7 @@ class DummyIMDataset(InMemoryDataset):
         self.dataset_name = dataset_name
         self.split = split
         self.cfg: dict = config_args
+        self.diffdock_nmdn_result = self.cfg["diffdock_nmdn_result"] if self.cfg else None
         super().__init__(data_root, None, None)
         from utils.data.DataPostProcessor import DataPostProcessor
         self.pre_processor = DataPreprocessor(config_args)
@@ -72,7 +77,11 @@ class DummyIMDataset(InMemoryDataset):
             return
         
         if len(self.processed_paths) == 1 and \
-            self.cfg["diffdock_nmdn_result"] is None:
+            self.diffdock_nmdn_result is None:
+            self.data, self.slices = torch.load(self.processed_paths[0])
+            return
+        
+        if self.processed_file_names[0].startswith("hashed-and-saved"):
             self.data, self.slices = torch.load(self.processed_paths[0])
             return
 
@@ -96,7 +105,7 @@ class DummyIMDataset(InMemoryDataset):
             return
         
         # DiffDock-NMDN selected poses only
-        diffdock_nmdn_result: List[str] = self.cfg["diffdock_nmdn_result"]
+        diffdock_nmdn_result: List[str] = self.diffdock_nmdn_result
         logging.info(f"Diffdock-NMDN: {diffdock_nmdn_result}")
         assert diffdock_nmdn_result is not None
         selected_fls = [self.nmdn_test2selected_fl(folder) for folder in diffdock_nmdn_result]
@@ -115,6 +124,9 @@ class DummyIMDataset(InMemoryDataset):
             del dummy_ds
             
         self.data, self.slices = InMemoryDataset.collate(selected_data_list)
+        save_dir = osp.join(self.processed_dir, "hashed-and-saved")
+        os.makedirs(save_dir, exist_ok=True)
+        torch.save((self.data, self.slices), osp.join(save_dir, f"{self.hashed_ds_name}.pyg"))
 
     @staticmethod
     def nmdn_test2selected_fl(nmdn_test_folder: str) -> List[str]:
@@ -212,13 +224,22 @@ class DummyIMDataset(InMemoryDataset):
             assert len(casf_pdbs) == 285, casf_pdbs
             train_index = []
             val_index = []
-            for idx, pdb in enumerate(self.data.pdb):
+            nonbinders_index = []
+            for idx, (pdb, fl) in enumerate(zip(self.data.pdb, self.data.file_handle)):
+                if fl.startswith("nonbinders."):
+                    nonbinders_index.append(idx)
+                    continue
                 if pdb in casf_pdbs:
                     continue
                 if pdb in val_set_pdbs:
                     val_index.append(idx)
                     continue
                 train_index.append(idx)
+
+            if len(nonbinders_index) > 0:
+                nonbinders_train, nonbinders_val = train_test_split(nonbinders_index, test_size=1000, random_state=2017)
+                train_index.extend(nonbinders_train)
+                val_index.extend(nonbinders_val)
             self.train_index = torch.as_tensor(train_index)
             self.val_index = torch.as_tensor(val_index)
             return
@@ -312,7 +333,7 @@ class DummyIMDataset(InMemoryDataset):
     def raw_file_names(self):
         return ["dummy"]
 
-    @property
+    @cached_property
     def processed_file_names(self):
         possible_files: List[str] = glob(osp.join(self.processed_dir, self.dataset_name))
         if self.cfg and self.cfg["debug_mode"]:
@@ -324,6 +345,12 @@ class DummyIMDataset(InMemoryDataset):
                     this_files = this_files[0:1]
                 possible_files.extend(this_files)
         assert len(possible_files) > 0, f"File: {osp.join(self.processed_dir, self.dataset_name)} not found!"
+        
+        if self.diffdock_nmdn_result is not None:
+            self.hashed_ds_name = self.hash_ds_name(possible_files, self.diffdock_nmdn_result)
+            if osp.exists(osp.join(self.processed_dir, "hashed-and-saved", f"{self.hashed_ds_name}.pyg")):
+                return [f"hashed-and-saved/{self.hashed_ds_name}.pyg"]
+        
         if len(possible_files) == 1:
             return [self.dataset_name]
         
@@ -336,6 +363,19 @@ class DummyIMDataset(InMemoryDataset):
 
     def process(self):
         pass
+
+    @staticmethod
+    def hash_ds_name(possible_files: List[str], nmdn_result: List[str]) -> str:
+        all_files = []
+        for f in possible_files:
+            all_files.append(osp.abspath(f))
+        for f in nmdn_result:
+            all_files.append(osp.abspath(f))
+        all_files.sort()
+        before_hash: str = ":".join(all_files)
+        h = hashlib.new('sha256')
+        h.update(before_hash.encode('ascii'))
+        return h.hexdigest()
 
 
 class AuxPropDataset(DummyIMDataset):
