@@ -1,10 +1,11 @@
 from collections import defaultdict
 from functools import cached_property
-from typing import Optional, Set
+from typing import List, Optional, Set
 import os
 import os.path as osp
 from tqdm import tqdm
 import numpy as np
+from glob import glob
 
 import pandas as pd
 from urllib.request import urlretrieve
@@ -15,6 +16,15 @@ class NonbinderReader:
         if ds_root is None:
             ds_root = "/vast/sx801/geometries/Yaowen_nonbinders"
         self.ds_root = ds_root
+
+    def uniprot_id2prot_polarh(self, uniprot_id: str) -> str:
+        return osp.join(self.ds_root, "protein_pdbs_polarh", f"{uniprot_id}.pdb")
+
+    def uniprot_id2prot_og(self, uniprot_id: str) -> str:
+        return osp.join(self.ds_root, "protein_pdbs", f"{uniprot_id}.pdb")
+
+    def fl2ligs(self, fl: str) -> List[str]:
+        return glob(osp.join(self.ds_root, "pose_diffdock", "raw_predicts", fl, "rank*_confidence*.sdf"))
 
     @cached_property
     def info_df(self) -> pd.DataFrame:
@@ -60,4 +70,4 @@ class NonbinderReader:
             df_chunk.to_csv(osp.join(save_root, f"job_gpu_{i}.csv"), index=False)
 
 if __name__ == "__main__":
-    print(NonbinderReader().generate_diffdock_jobs())
+    print(NonbinderReader().info_df.set_index("file_handle").loc["nonbinders.ic50.1000415"])

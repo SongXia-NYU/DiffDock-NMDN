@@ -91,32 +91,16 @@ class DummyIMDataset(InMemoryDataset):
                     if rank == 1:
                         selected_data_list.append(this_d.clone())
                 del dummy_ds
-                
-                if self.cfg["debug_mode"]: break
+
             self.data, self.slices = InMemoryDataset.collate(selected_data_list)
             return
         
-        from utils.eval.TestedFolderReader import TestedFolderReader
         # DiffDock-NMDN selected poses only
-        diffdock_nmdn_result: str = self.cfg["diffdock_nmdn_result"]
-        logging.info("Diffdock-NMDN: ", diffdock_nmdn_result)
+        diffdock_nmdn_result: List[str] = self.cfg["diffdock_nmdn_result"]
+        logging.info(f"Diffdock-NMDN: {diffdock_nmdn_result}")
         assert diffdock_nmdn_result is not None
-        nmdn_reader = TestedFolderReader(diffdock_nmdn_result)
-        nmdn_score_dfs = []
-        for key in nmdn_reader.record_mapper.keys():
-            record_df: pd.DataFrame = nmdn_reader.record_mapper[key].set_index("sample_id")
-            test_result_dict: dict = nmdn_reader.record_key2result(key)
-            nmdn_score = test_result_dict["MDN_LOGSUM_DIST2_REFDIST2"].cpu().numpy()
-            sample_id = test_result_dict["sample_id"].cpu().numpy()
-            score_df = pd.DataFrame({"sample_id": sample_id, "nmdn_score": nmdn_score}).set_index("sample_id")
-            record_df = record_df.join(score_df)
-            nmdn_score_dfs.append(record_df)
-        nmdn_score_dfs = pd.concat(nmdn_score_dfs)
-        nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: s.split(".")[0])
-        nmdn_score_dfs = nmdn_score_dfs.dropna().sort_values("nmdn_score", ascending=False).drop_duplicates("pdb_id")
-        if "rank" in nmdn_score_dfs.columns:
-            nmdn_score_dfs["file_handle"] = nmdn_score_dfs.apply(lambda x: x["file_handle"] + "." + str(x["rank"]), axis=1).values
-        selected_fl = set(nmdn_score_dfs["file_handle"].values.tolist())
+        selected_fls = [self.nmdn_test2selected_fl(folder) for folder in diffdock_nmdn_result]
+        selected_fl = set.union(*selected_fls)
 
         selected_data_list = []
         for ds_name in tqdm(self.processed_file_names, desc="Loading diffdock-nmdn datasets"):
@@ -130,8 +114,31 @@ class DummyIMDataset(InMemoryDataset):
                     selected_data_list.append(this_d.clone())
             del dummy_ds
             
-            if self.cfg["debug_mode"]: break
         self.data, self.slices = InMemoryDataset.collate(selected_data_list)
+
+    @staticmethod
+    def nmdn_test2selected_fl(nmdn_test_folder: str) -> List[str]:
+        from utils.eval.TestedFolderReader import TestedFolderReader
+        nmdn_reader = TestedFolderReader(nmdn_test_folder)
+        nmdn_score_dfs = []
+        for key in nmdn_reader.record_mapper.keys():
+            record_df: pd.DataFrame = nmdn_reader.record_mapper[key].set_index("sample_id")
+            test_result_dict: dict = nmdn_reader.record_key2result(key)
+            nmdn_score = test_result_dict["MDN_LOGSUM_DIST2_REFDIST2"].cpu().numpy()
+            sample_id = test_result_dict["sample_id"].cpu().numpy()
+            score_df = pd.DataFrame({"sample_id": sample_id, "nmdn_score": nmdn_score}).set_index("sample_id")
+            record_df = record_df.join(score_df)
+            nmdn_score_dfs.append(record_df)
+        nmdn_score_dfs = pd.concat(nmdn_score_dfs)
+        nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: s.split(".")[0])
+        if nmdn_score_dfs.iloc[0]["file_handle"].startswith("nonbinders."):
+            # Yaowen nonbinder data set
+            nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: ".".join(s.split(".")[1:3]))
+        nmdn_score_dfs = nmdn_score_dfs.dropna().sort_values("nmdn_score", ascending=False).drop_duplicates("pdb_id")
+        if "rank" in nmdn_score_dfs.columns:
+            nmdn_score_dfs["file_handle"] = nmdn_score_dfs.apply(lambda x: x["file_handle"] + "." + str(x["rank"]), axis=1).values
+        selected_fl = set(nmdn_score_dfs["file_handle"].values.tolist())
+        return selected_fl
 
     def infuse_pdb(self):
         if hasattr(self.data, "pdb"):
@@ -308,6 +315,14 @@ class DummyIMDataset(InMemoryDataset):
     @property
     def processed_file_names(self):
         possible_files: List[str] = glob(osp.join(self.processed_dir, self.dataset_name))
+        if self.cfg and self.cfg["debug_mode"]:
+            possible_files = possible_files[0:1]
+        if self.cfg and self.cfg["dataset_names"]:
+            for additional_files in self.cfg["dataset_names"]:
+                this_files = glob(osp.join(self.processed_dir, additional_files))
+                if self.cfg["debug_mode"]:
+                    this_files = this_files[0:1]
+                possible_files.extend(this_files)
         assert len(possible_files) > 0, f"File: {osp.join(self.processed_dir, self.dataset_name)} not found!"
         if len(possible_files) == 1:
             return [self.dataset_name]

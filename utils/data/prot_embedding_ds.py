@@ -20,8 +20,6 @@ class ProteinEmbeddingDS(AuxPropDataset):
         super().__init__(**kwargs)
 
         self.prot_embedding_root = self.cfg["prot_embedding_root"]
-        if not osp.exists(self.prot_embedding_root):
-            raise ValueError("Invalid prot_embedding_root: "+self.prot_embedding_root)
         self.prot_embed_use_chunks = self.cfg["prot_embed_use_chunks"]
             
         self._sanity_checked_ids = set()
@@ -46,6 +44,9 @@ class ProteinEmbeddingDS(AuxPropDataset):
         # load ESM embedding from memory, again, only needed protein embeddings are loaded
         prot_embedding_mapper = {}
         chunks = glob(osp.join(self.prot_embedding_root, "chunk_*.pth"))
+        if self.cfg["prot_embedding_roots"]:
+            for additional_root in self.cfg["prot_embedding_roots"]:
+                chunks.extend(glob(osp.join(additional_root, "chunk_*.pth")))
         is_deep_acc_net: bool = "/DeepAccNet/" in self.prot_embedding_root
         for chunk in tqdm(chunks, desc="loading ESM chunks"):
             chunk_dict: Dict[str, torch.Tensor] = torch.load(chunk, map_location="cpu")
@@ -123,25 +124,7 @@ class ProteinEmbeddingDS(AuxPropDataset):
         self.prot_embedding_mapper = prot_embedding_mapper
         return
 
-    def try_load_prot_embed(self, pdb):
-        # chunk behaviour: multiple protein one file
-        if self.prot_embed_use_chunks:
-            if pdb not in self.pdb2chunk:
-                return None
-            
-            tgt_chunk_id = self.pdb2chunk[pdb]
-            if tgt_chunk_id == self.loaded_chunk_id:
-                if pdb not in self.loaded_chunk_dict:
-                    return None
-                return self.loaded_chunk_dict[pdb].cpu().squeeze(0)[1: -1, :]
-            
-            chunk_dict = torch.load(osp.join(self.prot_embedding_root, f"chunk_{tgt_chunk_id}.pth"))
-            self.loaded_chunk_dict = {key.split(".")[0]: chunk_dict[key] for key in chunk_dict}
-            self.loaded_chunk_id = tgt_chunk_id
-            if pdb not in self.loaded_chunk_dict:
-                return None
-            return self.loaded_chunk_dict[pdb].cpu().squeeze(0)[1: -1, :]
-        
+    def try_load_prot_embed(self, pdb):        
         # legacy behaviour: one protein one file
         # due to different naming convention, I need to check different combination of files :<
         file_names = [f"{pdb}.pth", f"{pdb}_protein.pth"]

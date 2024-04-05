@@ -910,8 +910,10 @@ def add_parser_arguments(parser: argparse.ArgumentParser):
     # Training/Validation
     parser.add_argument('--data_provider', type=str)
     parser.add_argument("--dataset_name", type=str, default=None, help="The PYG file of the dataset")
+    parser.add_argument("--dataset_names", type=str, action="append", help="additional PyG files to collate")
     parser.add_argument("--split", type=str, default=None, help="The split file of the dataset")
-    parser.add_argument("--diffdock_nmdn_result", type=str, default=None, help="Use NMDN score to select input geometries for training.")
+    parser.add_argument("--diffdock_nmdn_result", type=str, default=None, action="append", 
+                        help="Use NMDN score to select input geometries for training.")
     parser.add_argument("--diffdock_confidence", action="store_true", help="Use diffdock-confidence score to select input geometries. overwrites --diffdock_nmdn_result")
     parser.add_argument("--valid_size", type=int, default=None, help="Validation size")
     parser.add_argument("--split_seed", type=int, default=2333, help="Seed for random splitting.")
@@ -924,6 +926,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("--proc_in_gpu", action="store_true",
         help="preprocess (distance matrix and edge calculation) in gpu. multiple workers does not work in this way so num_workers will be set to 0")
     parser.add_argument("--prot_embedding_root", default=None)
+    parser.add_argument("--prot_embedding_roots", action="append", help="additional protein embeddings")
     parser.add_argument("--prot_embed_use_chunks", action="store_true",
         help="Prot embedding uses chunks behaviour: instead of one protein one file, use thousands of protein per file")
     parser.add_argument("--prot_info_ds", default=None, help="Use a separate dataset to store protein information (coordinates, PP bonds, etc...)")

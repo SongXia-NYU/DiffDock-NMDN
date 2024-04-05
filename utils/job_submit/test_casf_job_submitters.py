@@ -109,6 +109,10 @@ class CASF_BlindDockJobSubmitter(CASF_JobSubmitter):
         screening_config = f"configs/test_set_casf-blind-screening_{ds_name}.txt"
         info["docking_config"] = docking_config
         info["screening_config"] = screening_config
-        info["casf_extra"] += "--blind-dock "
+        info["docking_extra"] = ""
+        info["screening_extra"] = ""
+        if self.folder_reader.args["diffdock_nmdn_result"] is not None:
+            info["docking_extra"] = "--diffdock_nmdn_result /scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-docking_2024-03-31_174131 "
+            info["screening_extra"] = "--diffdock_nmdn_result /scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-screening_2024-03-27_005509"
         # info["casf_extra"] += f"--docking_config {docking_config}"
         return info

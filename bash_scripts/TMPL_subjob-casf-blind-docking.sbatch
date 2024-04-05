@@ -17,7 +17,8 @@ module purge
             export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python test.py --folder_names '{test_folder}' \
             --explicit_ds_config {docking_config} \
-            --only_predict --use_exist --use_tqdm --compute_external_mdn "
+            --only_predict --use_exist --use_tqdm --compute_external_mdn \
+            {docking_extra} "
 
 SCREENING_CONFIG={screening_config}
 if true && [[ -f "$SCREENING_CONFIG" ]]; then
@@ -29,7 +30,8 @@ if true && [[ -f "$SCREENING_CONFIG" ]]; then
             export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python test.py --folder_names '{test_folder}' \
               --explicit_ds_config {screening_config} \
-              --only_predict --use_exist --use_tqdm --compute_external_mdn "
+              --only_predict --use_exist --use_tqdm --compute_external_mdn \
+              {screening_extra} "
 fi
 
 #!/bin/bash

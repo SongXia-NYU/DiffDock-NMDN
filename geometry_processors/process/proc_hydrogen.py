@@ -102,7 +102,6 @@ class ProtPolarConverter(BaseConverter):
             pdbqt_file = osp.join(d, f"{self.file_handle}.pdbqt")
             subprocess.run(f"cd {d}; {PREPARE_PROT} -r {self.f_in} -U nphs_lps -A 'checkhydrogens' -o {pdbqt_file} ", shell=True, check=True)
             subprocess.run(f"obabel -ipdbqt {pdbqt_file} -o{self.ext_out} -O {self.f_out}", shell=True, check=True)
-            subprocess.run(f"rm {pdbqt_file}", shell=True, check=True)
 
 
 class HydrogenRemover(BaseConverter):

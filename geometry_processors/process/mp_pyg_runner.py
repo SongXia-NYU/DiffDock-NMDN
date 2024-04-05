@@ -68,6 +68,7 @@ class PygRunnerBase:
         data_list = [d for d in data_list if d]
         if self.data_modifier is not None:
             data_list = [self.data_modifier(d) for d in data_list]
+        data_list = [d for d in data_list if d]
         n_max_pad = self.determin_padding()
         concat_pyg(data_list=data_list, save_pyg=save_pyg, n_max_pad=n_max_pad)
 

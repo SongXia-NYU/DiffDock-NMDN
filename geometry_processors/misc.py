@@ -6,8 +6,8 @@ import json
 
 from rdkit.Chem import AllChem
 
-# DiffDock repo
-from src.utils.utils import time_limit
+from utils.utils_functions import time_limit
+
 
 
 def solv_num_workers():

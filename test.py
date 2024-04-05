@@ -13,6 +13,8 @@ def test_folder(folder_name, **kwargs):
     for key in list(kwargs.keys()):
         if kwargs[key] == "#remove_if_not_default":
             del kwargs[key]
+    if kwargs["diffdock_nmdn_result"] is None:
+        del kwargs["diffdock_nmdn_result"]
     tester = Tester(folder_name=folder_name, **kwargs)
     tester.run_test()
 
@@ -31,7 +33,7 @@ def test_all():
     parser.add_argument("--use_tqdm", action="store_true")
     parser.add_argument("--compute_external_mdn", action="store_true")
     parser.add_argument("--no_pkd_score", action="store_true", help="Only predicts NMDN score, ingnoring pKd score.")
-    parser.add_argument("--diffdock_nmdn_result", default="#remove_if_not_default", type=str)
+    parser.add_argument("--diffdock_nmdn_result", default=None, type=str, action="append")
     _args = parser.parse_args()
 
     run_dirs = glob.glob(_args.folder_names)
