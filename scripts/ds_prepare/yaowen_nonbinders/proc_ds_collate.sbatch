@@ -13,7 +13,7 @@ module purge
 PYTHONPATH="/scratch/sx801/scripts/DiffDock-NMDN:$PYTHONPATH"
 ENV_CMD="export PYTHONPATH=$PYTHONPATH"
 
-RUN_CMD="python $1 proc_ds.py "
+RUN_CMD="python $1 proc_ds_crys.py "
 
 singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \

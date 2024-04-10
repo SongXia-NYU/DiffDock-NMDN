@@ -15,6 +15,8 @@ def test_folder(folder_name, **kwargs):
             del kwargs[key]
     if kwargs["diffdock_nmdn_result"] is None:
         del kwargs["diffdock_nmdn_result"]
+    kwargs["dataset_names"] = None
+    kwargs["prot_embedding_roots"] = None
     tester = Tester(folder_name=folder_name, **kwargs)
     tester.run_test()
 

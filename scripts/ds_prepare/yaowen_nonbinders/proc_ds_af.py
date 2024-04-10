@@ -18,10 +18,10 @@ from geometry_processors.process.proc_hydrogen import LigPolarConverter, ProtPol
 def prot_polarh():
     reader = NonbinderReader()
     for uniprot_id in tqdm(reader.uniprot_ids):
-        polarh = reader.uniprot_id2prot_polarh(uniprot_id)
+        polarh = reader.uniprot_id2afprot_polarh(uniprot_id)
         if osp.exists(polarh):
             continue
-        og_prot = reader.uniprot_id2prot_og(uniprot_id)
+        og_prot = reader.uniprot_id2afprot_og(uniprot_id)
         conv = ProtPolarConverter(og_prot, polarh)
         conv.run()
 
@@ -40,8 +40,8 @@ def proc():
         this_info = reader.info_df.iloc[i]
         uniprot_id = this_info["Uniprot_ID"]
         file_handle = this_info["file_handle"]
-        polar_prot = reader.uniprot_id2prot_polarh(uniprot_id)
-        for raw_lig in reader.fl2ligs(file_handle):
+        polar_prot = reader.uniprot_id2afprot_polarh(uniprot_id)
+        for raw_lig in reader.fl2afligs(file_handle):
             fname = osp.basename(raw_lig)
             rank:str = fname.split("_")[0]
             file_handle_ranked = f"{file_handle}.src{rank}"

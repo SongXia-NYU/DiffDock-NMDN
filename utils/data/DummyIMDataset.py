@@ -120,13 +120,16 @@ class DummyIMDataset(InMemoryDataset):
                 if hasattr(this_d, "rank"):
                     fl += "." + str(this_d.rank.item())
                 if fl in selected_fl:
+                    if "ion" in this_d.node_types:
+                        this_d["ion"].Z = this_d["ion"].Z.view(-1)
                     selected_data_list.append(this_d.clone())
             del dummy_ds
             
         self.data, self.slices = InMemoryDataset.collate(selected_data_list)
         save_dir = osp.join(self.processed_dir, "hashed-and-saved")
         os.makedirs(save_dir, exist_ok=True)
-        torch.save((self.data, self.slices), osp.join(save_dir, f"{self.hashed_ds_name}.pyg"))
+        if not self.cfg["debug_mode"]:
+            torch.save((self.data, self.slices), osp.join(save_dir, f"{self.hashed_ds_name}.pyg"))
 
     @staticmethod
     def nmdn_test2selected_fl(nmdn_test_folder: str) -> List[str]:

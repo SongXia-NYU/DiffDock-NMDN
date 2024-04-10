@@ -9,12 +9,12 @@ from utils.scores.casf_blind_scores import score_rank_power
 from utils.scores.merck_fep_scores import MerckFEPScoreCalculator
 
 def casf_score_rank():
-    for pose_select in ["crystal_out", "nmdn_out", "diffdock_out"]:
-        out_df = pd.read_csv(f"{pose_select}.csv").rename({"pdb": "pdb_id"}, axis=1)
+    for pose_select in ["nmdn_out", "crystal_out", "diffdock_out"]:
+        out_df = pd.read_csv(f"./casf_opt/{pose_select}.csv").rename({"pdb": "pdb_id"}, axis=1)
         for score_name in ["xgb_score", "linf9_score"]:
             out_df["score"] = out_df[score_name]
-            scores = score_rank_power(out_df, "./casf", f"{pose_select}.{score_name}.png")
-            with open(f"./casf/{pose_select}.{score_name}.yaml", "w") as f:
+            scores = score_rank_power(out_df, "./casf_opt", f"{pose_select}.{score_name}.png")
+            with open(f"./casf_opt/{pose_select}.{score_name}.yaml", "w") as f:
                 yaml.safe_dump(scores, f)
 
 def merck_rank():
@@ -35,4 +35,4 @@ def merck_rank():
             rank_df.to_excel(osp.join("merck-fep", f"{pose_select}.{score}.xlsx"), float_format="%.2f")
 
 if __name__ == "__main__":
-    merck_rank()
+    casf_score_rank()

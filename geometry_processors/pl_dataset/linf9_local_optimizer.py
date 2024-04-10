@@ -1,27 +1,32 @@
-import os
 import os.path as osp
 import signal
 import subprocess
 from tempfile import TemporaryDirectory
 
 from geometry_processors.pl_dataset.csv2input_list import MPInfo
-from geometry_processors.process.proc_hydrogen import PREPARE_PROT, PREPARE_LIG, LigPolarConverter, handler
+from geometry_processors.process.proc_hydrogen import PREPARE_PROT, PREPARE_LIG, handler
 
 
 LINF9_PATH = "/softwares/Lin_F9_test"
 LINF9 = f"{LINF9_PATH}/smina.static"
 
 class LinF9LocalOptimizer:
-    def __init__(self, info: MPInfo) -> None:
-        self.protein_pdb = info.protein_pdb
-        self.ligand_mol2 = info.ligand_mol2
-        self.ligand_sdf = info.ligand_sdf
+    def __init__(self, protein_pdb=None, ligand_sdf=None, ligand_linf9_opt=None, 
+                 ligand_mol2=None, protein_pdbqt=None, ligand_pdbqt=None) -> None:
+        self.protein_pdb = protein_pdb
+        self.ligand_mol2 = ligand_mol2
+        self.ligand_sdf = ligand_sdf
 
-        self.protein_pdbqt = info.protein_pdbqt
-        self.ligand_pdbqt = info.ligand_pdbqt
-        self.ligand_linf9_opt = info.ligand_linf9_opt
+        self.protein_pdbqt = protein_pdbqt
+        self.ligand_pdbqt = ligand_pdbqt
+        self.ligand_linf9_opt = ligand_linf9_opt
 
     def run(self):
+        temp_dir = TemporaryDirectory()
+        if self.protein_pdbqt is None:
+            self.protein_pdbqt = osp.join(temp_dir.name, "protein.pdbqt")
+        if self.ligand_pdbqt is None:
+            self.ligand_pdbqt = osp.join(temp_dir.name, "ligand.pdbqt")
         if not osp.exists(self.protein_pdbqt):
             assert self.protein_pdb is not None
             subprocess.run(f"{PREPARE_PROT} -r {self.protein_pdb} -U nphs_lps -A 'checkhydrogens' -o {self.protein_pdbqt} ", shell=True, check=True)
@@ -29,7 +34,6 @@ class LinF9LocalOptimizer:
             ligand_mol2 = self.ligand_mol2
             if self.ligand_mol2 is None:
                 assert self.ligand_sdf is not None
-                temp_dir = TemporaryDirectory()
                 mol2_file = osp.join(temp_dir.name, "tmp.mol2")
                 conv_cmd = f"obabel -isdf {self.ligand_sdf} -omol2 -O {mol2_file}"
                 print(conv_cmd)
@@ -41,10 +45,9 @@ class LinF9LocalOptimizer:
             signal.alarm(10)
             subprocess.run(lig_cmd, shell=True, check=True, cwd=ligand_dir)
             signal.alarm(0)
-            if "temp_dir" in locals():
-                temp_dir.cleanup()
         linf9_cmd = f"{LINF9} -r {self.protein_pdbqt} -l {self.ligand_pdbqt} --local_only --scoring Lin_F9 -o {self.ligand_linf9_opt} "
         subprocess.run(linf9_cmd, shell=True, check=True)
+        temp_dir.cleanup()
 
 
 class LinF9OptConverter:

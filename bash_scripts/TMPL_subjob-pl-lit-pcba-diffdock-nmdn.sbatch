@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#SBATCH --job-name=t-lit-pcba-diffdock-nmdn
+#SBATCH --job-name=t-{target}-{job_name}
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=2
@@ -28,7 +28,7 @@ module purge
 
 #!/bin/bash
 #
-#SBATCH --job-name=screen-lit-pcba-diffdock-nmdn
+#SBATCH --job-name=screen-{target}-{job_name}
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=3:40:00

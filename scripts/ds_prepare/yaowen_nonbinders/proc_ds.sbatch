@@ -16,7 +16,7 @@ ENV_CMD="export PYTHONPATH=$PYTHONPATH"
 
 if [ "$SLURM_ARRAY_TASK_ID" == "" ]; then SLURM_ARRAY_TASK_ID=$1; fi
 
-RUN_CMD="python proc_ds.py --array_id $SLURM_ARRAY_TASK_ID "
+RUN_CMD="python proc_ds_crys.py --array_id $SLURM_ARRAY_TASK_ID "
 
 singularity exec --nv \
             --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \

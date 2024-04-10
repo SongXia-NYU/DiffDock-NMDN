@@ -1,10 +1,12 @@
 """
 Blind docking and screening on CASF-2016 data set.
 """
+from collections import defaultdict
 import os
 import os.path as osp
 from typing import Dict, List, Set
 import pandas as pd
+import numpy as np
 from scipy.stats import pearsonr
 import torch
 import subprocess
@@ -149,6 +151,8 @@ class CASFBlindDockScore(CasfScoreCalculator):
             sample_id = test_res["sample_id"].numpy()
             # required columns: file_handle, score, pdb_id
             score_df = pd.DataFrame({"sample_id": sample_id, "score": score}).set_index("sample_id").join(test_record)
+            if key == "MDN_LOGSUM_DIST2_REFDIST2":
+                self.docking_detailed(score_df)
             max_score_df = score_df.set_index("file_handle").join(self.rmsd_info_df, how="outer").sort_values("score", ascending=False).drop_duplicates(["pdb_id"])
             scores = self.compute_scores(max_score_df)
             this_scores_df = pd.DataFrame(scores, index=[key])
@@ -163,6 +167,45 @@ class CASFBlindDockScore(CasfScoreCalculator):
             return "{:.3f}".format(num)
         out_df[["score_r", "rank_spearman", "rank_kendall"]] = out_df[["score_r", "rank_spearman", "rank_kendall"]].applymap(to3decimal)
         out_df.to_excel(osp.join(self.save_root, "docking_summary.xlsx"))
+
+    def docking_detailed(self, score_df: pd.DataFrame):
+        # calculate detailed docking scores like in the DiffDock work
+        score_df = score_df.set_index("file_handle").join(self.rmsd_info_df, how="outer")
+        score_df["rank"] = score_df.index.map(lambda s: int(s.split("srcrank")[-1]))
+        out_df = self.diffdock_detailed_docking_power(score_df)
+        
+        out_df.to_csv(osp.join(self.save_root, "docking_detailed.csv"))
+        out_df.to_excel(osp.join(self.save_root, "docking_detailed.xlsx"), float_format="%.2f")
+    
+    @staticmethod
+    def diffdock_detailed_docking_power(score_df: pd.DataFrame):
+        nmdn_top1_rmsd = []
+        nmdn_top5_rmsd = []
+        confidence_top1_rmsd = []
+        confidence_top5_rmsd = []
+        for pdb, df in score_df.groupby("pdb_id"):
+            df = df.sort_values("score", ascending=False)
+            nmdn_top1_rmsd.append(df.iloc[0]["rmsd"].item())
+            nmdn_top5_rmsd.append(df.iloc[:5]["rmsd"].values.min().item())
+            df = df.sort_values("rank", ascending=True)
+            confidence_top1_rmsd.append(df.iloc[0]["rmsd"].item())
+            confidence_top5_rmsd.append(df.iloc[:5]["rmsd"].values.min().item())
+        nmdn_top1_rmsd = np.asarray(nmdn_top1_rmsd)
+        nmdn_top5_rmsd = np.asarray(nmdn_top5_rmsd)
+        confidence_top1_rmsd = np.asarray(confidence_top1_rmsd)
+        confidence_top5_rmsd = np.asarray(confidence_top5_rmsd)
+        out_info = defaultdict(lambda: [])
+        out_info["top1%<2"].append(100.0 * (confidence_top1_rmsd < 2.).sum() / 285)
+        out_info["top1-median"].append(np.median(confidence_top1_rmsd))
+        out_info["top5%<2"].append(100.0 * (confidence_top5_rmsd < 2.).sum() / 285)
+        out_info["top5-median"].append(np.median(confidence_top5_rmsd))
+
+        out_info["top1%<2"].append(100.0 * (nmdn_top1_rmsd < 2.).sum() / 285)
+        out_info["top1-median"].append(np.median(nmdn_top1_rmsd))
+        out_info["top5%<2"].append(100.0 * (nmdn_top5_rmsd < 2.).sum() / 285)
+        out_info["top5-median"].append(np.median(nmdn_top5_rmsd))
+        out_df = pd.DataFrame(out_info, index=["DiffDock", "DiffDock-NMDN"])
+        return out_df
 
     def mixed_mdn_pkd_score(self, out_dfs: List[pd.DataFrame], mdn_name: str):
         test_res: dict = self.blind_docking_reader.result_mapper["test"]
