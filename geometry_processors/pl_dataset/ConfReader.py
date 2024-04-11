@@ -111,7 +111,7 @@ class PDBReader(ConfReader):
     """
     Read a PDB file, return coordinates for Pytorch-Geometric dataset preparation
     """
-    def __init__(self, pdb_file, dry=False, capped=False, stdaa=False, **kwargs):
+    def __init__(self, pdb_file, dry=False, capped=False, stdaa=False, force_polarh=False, **kwargs):
         super().__init__(**kwargs)
         # only select protein atoms
         self.dry = dry
@@ -120,6 +120,8 @@ class PDBReader(ConfReader):
         self.pdb_file = pdb_file
         # convert capping ACE and NME to B and J instead of X (unknown)
         self.capped = capped
+        # force removing non-polar hydrogens. Input structures must have hydrogen added.
+        self.force_polarh: bool = force_polarh
 
         self._mol = None
         self._prody_parser = None
@@ -189,7 +191,15 @@ class PDBReader(ConfReader):
                 self._prody_parser = self._prody_parser.protein.toAtomGroup()
             if self.stdaa:
                 self._prody_parser = self._prody_parser.stdaa.toAtomGroup()
+            if self.force_polarh:
+                self._prody_parser = self.remove_nonpolar(self._prody_parser)
         return self._prody_parser
+
+    @staticmethod
+    def remove_nonpolar(ag: AtomGroup) -> AtomGroup:
+        ag.inferBonds()
+        ag = ag.select("not (hydrogen and bonded 1 to carbon)")
+        return ag.toAtomGroup()
     
     def set_prody_parser(self, parser: AtomGroup) -> None:
         self._prody_parser = parser
@@ -454,6 +464,8 @@ class Mol2Reader(ConfReader):
 
 
 if __name__ == '__main__':
-    import json
-    tmp = PDBReader("/vast/sx801/geometries/PDBBind2020_OG/RenumPDBs/13gs.renum.pdb")
+    fname = "/scratch/xd638/20240407_DeepAccNet_unzip/test/new_pdbs/1af7A_0/1af7A_0_100.pdb"
+    tmp = PDBReader(fname, dry=True, force_polarh=True)
+    from prody import writePDB
+    writePDB("/scratch/sx801/temp/1af7A_0_100.polarh.pdb", tmp.prody_parser)
     print(tmp.get_padding_style_dict())

@@ -37,7 +37,7 @@ from utils.data.delta_learning_ds import CASFSoringDeltaLearningDS, CASFDockingD
 from utils.data.LargeDataset import LargeDataset
 from utils.LossFn import BaseLossFn
 from utils.Optimizers import EmaAmsGrad, MySGD
-from utils.data.prot_embedding_ds import PPEmbedDS, ProteinEmbeddingDS
+from utils.data.prot_embedding_ds import PPEmbedDS, ProteinEmbeddingDS, ProteinEmbeddingFlyDS
 from utils.data.vs_im_datasets import ChunkMapperDataset
 from utils.eval.evaluator import Evaluator
 from utils.tags import tags
@@ -986,6 +986,8 @@ def data_provider_solver(args, default_kw_args=None, ds_key="data_provider"):
         return LargeDataset, default_kw_args
     elif name_base == "protein_embedding":
         return ProteinEmbeddingDS, default_kw_args
+    elif name_base == "protein_embedding_fly":
+        return ProteinEmbeddingFlyDS, default_kw_args
     elif name_base == "pp_embedding":
         return PPEmbedDS, default_kw_args
     elif name_base == "ESMGearNetProtLig":

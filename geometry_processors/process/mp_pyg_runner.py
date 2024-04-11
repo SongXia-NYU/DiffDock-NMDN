@@ -268,7 +268,7 @@ def proc_single_protein_implicit_mindist(info: MPInfo) -> Data:
     logger = logging.getLogger(".prody")
     logger.setLevel(logging.CRITICAL)
 
-    processor = SingleProtProcessor(info, protein_reader_args={"dry": True})
+    processor = SingleProtProcessor(info, protein_reader_args={"dry": True, "force_polarh": False})
     try:
         d = processor.process_single_entry()
         return d

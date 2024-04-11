@@ -147,8 +147,8 @@ class CASFBlindDockScore(CasfScoreCalculator):
         for key in test_res:
             if not (key.startswith("MDN_") or key in ["PROP_PRED", "PROP_PRED_MDN"]):
                 continue
-            score = test_res[key].numpy().reshape(-1)
-            sample_id = test_res["sample_id"].numpy()
+            score = test_res[key].cpu().numpy().reshape(-1)
+            sample_id = test_res["sample_id"].cpu().numpy()
             # required columns: file_handle, score, pdb_id
             score_df = pd.DataFrame({"sample_id": sample_id, "score": score}).set_index("sample_id").join(test_record)
             if key == "MDN_LOGSUM_DIST2_REFDIST2":

@@ -22,7 +22,9 @@ class SingleProtProcessor:
         sys_dict["Z_prot_pad"] = torch.zeros((0, pad_dict["R"].shape[1]))
         sys_dict["N_prot"] = torch.zeros((0, ))
         sys_dict["protein_file"] = pdb_reader.pdb_file
-        sys_dict["pdb"] = osp.basename(pdb_reader.pdb_file).split("_")[0]
+        if "pdb" not in self.info.labels:
+            sys_dict["pdb"] = osp.basename(pdb_reader.pdb_file).split("_")[0]
+        sys_dict.update(self.info.labels)
 
         # dummy variables for compatibility
         sys_dict["R"] = torch.zeros((0, 3))

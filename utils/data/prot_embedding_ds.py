@@ -1,15 +1,17 @@
+from collections import defaultdict
 import logging
-import os
 import os.path as osp
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
 from glob import glob
 
-from utils.data.DummyIMDataset import AuxPropDataset, DummyIMDataset
-from utils.data.data_utils import get_lig_coords, infer_device, infer_type, get_lig_natom, get_pl_edge, get_prot_coords, get_prot_natom
-from utils.utils_functions import get_device, floating_type
+from geometry_processors.lm.esm_embedding import ESMCalculator
+from utils.data.DummyIMDataset import AuxPropDataset
+from utils.data.data_utils import get_lig_coords, infer_device, get_lig_natom, get_pl_edge, get_prot_coords, get_prot_natom
+from utils.utils_functions import floating_type
+from geometry_processors.pl_dataset.prot_utils import pdb2seq
 
 
 class ProteinEmbeddingDS(AuxPropDataset):
@@ -138,7 +140,6 @@ class ProteinEmbeddingDS(AuxPropDataset):
         return None
 
     def get(self, idx: int, process=True) -> Data:
-        #TODO: check 6gga: prot_embed-196
         d = super().get(idx, process)
         pdb = self.idx2pdb_mapper[idx]
         d.prot_embed = self.prot_embedding_mapper[pdb].to(infer_device(d)).type(floating_type)
@@ -215,6 +216,37 @@ class ProteinEmbeddingDS(AuxPropDataset):
         pl_index_mask = (pl_index[1] < n_aas)
         d.PL_min_dist_sep_oneway_edge_index = d.PL_min_dist_sep_oneway_edge_index[:, pl_index_mask]
         d.PL_min_dist_sep_oneway_dist = d.PL_min_dist_sep_oneway_dist[pl_index_mask]
+        return d
+
+
+class ProteinEmbeddingFlyDS(ProteinEmbeddingDS):
+    """
+    Protein Embedding on-the-fly
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.idx2seq = {}
+        for idx, seq in enumerate(self.data.seq):
+            # seq is actually [seq]
+            self.idx2seq[idx] = seq
+        self.seq2embed = {}
+        self.esm_calculator = ESMCalculator(None)
+        # dummpy mapper to satisfy the super call
+        self.prot_embedding_mapper = defaultdict(lambda: torch.as_tensor([0.]))
+
+    def load_prot_embed(self):
+        pass
+
+    def get(self, idx: int, process=True) -> Data:
+        d = super().get(idx, process)
+        seq = self.idx2seq[idx]
+        if isinstance(seq, list):
+            seq = seq[0]
+        if seq not in self.seq2embed.keys():
+            self.seq2embed[seq] = self.esm_calculator.embed_from_seq(seq).squeeze(0)[1: -1, :].type(floating_type)
+        d.prot_embed = self.seq2embed[seq].to(infer_device(d)).type(floating_type)
+        
         return d
     
 
