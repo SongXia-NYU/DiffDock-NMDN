@@ -11,7 +11,7 @@ import time
 from collections import OrderedDict
 from copy import copy
 import re
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -753,23 +753,10 @@ class Trainer:
             return self._train_loader
         
         def oversample_weights():
-            if hasattr(self.ds.data, "mask"):
-                # legacy oversample weights.
-                # only used when training on FreeSolv-PHYSPROP-14k dataset
-                has_solv_mask = self.ds.data.mask[torch.as_tensor(self.train_index), 3]
-                n_total = has_solv_mask.shape[0]
-                n_has_wat_solv = has_solv_mask.sum().item()
-                n_no_wat_solv = n_total - n_has_wat_solv
-                self.log(f"Oversampling: {n_total} molecules are in the training set")
-                self.log(f"Oversampling: {n_has_wat_solv} molecules has water solv")
-                self.log(f"Oversampling: {n_no_wat_solv} molecules do not have water solv")
-                weights = torch.zeros_like(has_solv_mask).float()
-                weights[has_solv_mask] = n_no_wat_solv
-                weights[~has_solv_mask] = n_has_wat_solv
-                return weights, n_total
-            
             # only over-sample on the training set
-            train_src_id = self.ds.data.src_id[torch.as_tensor(self.train_index)].view(-1)
+            train_file_handle: List[str] = [self.ds.data.file_handle[i] for i in self.train_index]
+            train_src_id = [0 if fl.startswith("nonbinders.") else 1 for fl in train_file_handle]
+            train_src_id = torch.as_tensor(train_src_id)
             training_size = train_src_id.shape[0]
             all_src_ids = set(train_src_id.numpy().tolist())
             assert train_src_id.min() >= 0, all_src_ids

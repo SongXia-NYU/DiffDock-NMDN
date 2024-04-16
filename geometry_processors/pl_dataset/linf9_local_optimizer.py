@@ -3,12 +3,20 @@ import signal
 import subprocess
 from tempfile import TemporaryDirectory
 
-from geometry_processors.pl_dataset.csv2input_list import MPInfo
-from geometry_processors.process.proc_hydrogen import PREPARE_PROT, PREPARE_LIG, handler
 
-
+if osp.exists("/scratch/sx801/"):
+    SCRIPT_ROOT = "/softwares"
+    DS_ROOT = "/vast/sx801"
+else:
+    SCRIPT_ROOT = "/home/carrot_of_rivia/Documents/PycharmProjects"
+    DS_ROOT = "/home/carrot_of_rivia/Documents/disk/datasets"
+PREPARE_PROT = f"{SCRIPT_ROOT}/ADFRsuite_x86_64Linux_1.0/bin/prepare_receptor"
+PREPARE_LIG = f"{SCRIPT_ROOT}/ADFRsuite_x86_64Linux_1.0/bin/prepare_ligand"
 LINF9_PATH = "/softwares/Lin_F9_test"
 LINF9 = f"{LINF9_PATH}/smina.static"
+
+def handler(signum, frame):
+    raise RuntimeError("TIMEOUT running PREPARE_LIG")
 
 class LinF9LocalOptimizer:
     def __init__(self, protein_pdb=None, ligand_sdf=None, ligand_linf9_opt=None, 
@@ -48,31 +56,4 @@ class LinF9LocalOptimizer:
         linf9_cmd = f"{LINF9} -r {self.protein_pdbqt} -l {self.ligand_pdbqt} --local_only --scoring Lin_F9 -o {self.ligand_linf9_opt} "
         subprocess.run(linf9_cmd, shell=True, check=True)
         temp_dir.cleanup()
-
-
-class LinF9OptConverter:
-    """
-    Tempory pdbqt structures.
-    """
-    def __init__(self, src_prot_pdb: str, src_lig_mol2: str, dst_lig_pdb: str, lig_pdbqt: str = None) -> None:
-        self.src_prot_pdb = src_prot_pdb
-        self.src_lig_mol2 = src_lig_mol2
-        self.dst_lig_pdb = dst_lig_pdb
-
-        self.lig_pdbqt = lig_pdbqt
-
-    def run(self):
-        temp_dir = TemporaryDirectory()
-        prot_pdbqt = osp.join(temp_dir.name, "temp.prot.pdbqt")
-        lig_pdbqt = osp.join(temp_dir.name, "temp.lig.pdbqt") if self.lig_pdbqt is None else self.lig_pdbqt
-        info = MPInfo(protein_pdb=self.src_prot_pdb, ligand_mol2=self.src_lig_mol2, protein_pdbqt=prot_pdbqt,
-                      ligand_pdbqt=lig_pdbqt, ligand_linf9_opt=self.dst_lig_pdb)
-        optimizer = LinF9LocalOptimizer(info)
-        try:
-            optimizer.run()
-        except Exception as e:
-            print(e)
-            return {"f_in": self.src_lig_mol2, "f_out": self.dst_lig_pdb, "error_msg": str(e)}
-        temp_dir.cleanup()
-        return
 

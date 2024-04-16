@@ -5,7 +5,7 @@ from runXGB import run_XGB
 import subprocess
 
 
-def xgb_wrapper(prot: str, lig: str, protdir: str, addhs=True):
+def xgb_wrapper(prot: str, lig: str, protdir: str, addhs=False):
     lig_ifmt = lig.split(".")[-1]
     lig_id = osp.basename(lig).split(f".{lig_ifmt}")[0]
     lig_id = "".join(lig_id.split(" "))

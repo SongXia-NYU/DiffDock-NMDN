@@ -2,10 +2,12 @@ from typing import Dict
 import pandas as pd
 import yaml
 import os.path as osp
+from glob import glob
 
 from geometry_processors.pl_dataset.merck_fep_reader import MerckFEPReader
 from geometry_processors.post_analysis import plot_scatter_info
 from utils.scores.casf_blind_scores import score_rank_power
+from utils.scores.casf_scores import calc_screening_score
 from utils.scores.merck_fep_scores import MerckFEPScoreCalculator
 
 def casf_score_rank():
@@ -18,7 +20,7 @@ def casf_score_rank():
                 yaml.safe_dump(scores, f)
 
 def merck_rank():
-    for pose_select in ["nmdn_out", "diffdock_out"]:
+    for pose_select in ["opt_nmdn_out"]:
         out_df = pd.read_csv(f"merck-fep/{pose_select}.csv")
         rank_info_by_score, count_info_by_target = MerckFEPScoreCalculator.compute_rank_info(out_df, ["xgb_score", "linf9_score"])
         with open(osp.join("merck-fep", f"rank_info_by_score.{pose_select}.yaml"), "w") as f:
@@ -34,5 +36,27 @@ def merck_rank():
             rank_df.to_csv(osp.join("merck-fep", f"{pose_select}.{score}.csv"))
             rank_df.to_excel(osp.join("merck-fep", f"{pose_select}.{score}.xlsx"), float_format="%.2f")
 
+def casf_screen():
+    calc_screening_score
+    array_result_csvs = glob("./casf_opt/screening/arrays/array.*.csv")
+    array_dfs = []
+    for csv in array_result_csvs:
+        array_dfs.append(pd.read_csv(csv))
+    score_df = pd.concat(array_dfs)
+
+    for target_name, df in score_df.groupby("tgt_pdb"):
+        df["#code_ligand_num"] = df["lig_pdb"].map(lambda s: f"{s}_ligand_0")
+        df_xgb = df[["#code_ligand_num", "nmdn_xgb_score"]].rename({"nmdn_xgb_score": "score"}, axis=1)
+        df_xgb.to_csv(f"./casf_opt/screening/xgb_preds/{target_name}_score.dat", sep=" ", index=False)
+        df_linf9 = df[["#code_ligand_num", "nmdn_linf9_score"]].rename({"nmdn_linf9_score": "score"}, axis=1)
+        df_linf9.to_csv(f"./casf_opt/screening/linf9_preds/{target_name}_score.dat", sep=" ", index=False)
+    
+    res_xgb = calc_screening_score("./casf_opt/screening/", "xgb_preds", "xgb_preds")
+    res_linf9 = calc_screening_score("./casf_opt/screening/", "linf9_preds", "linf9_preds")
+    with open("./casf_opt/screening/xgb_scores.yaml", "w") as f:
+        yaml.safe_dump(res_xgb, f)
+    with open("./casf_opt/screening/linf9_scores.yaml", "w") as f:
+        yaml.safe_dump(res_linf9, f)
+
 if __name__ == "__main__":
-    casf_score_rank()
+    merck_rank()
