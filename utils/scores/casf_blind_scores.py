@@ -96,7 +96,7 @@ class CASFBlindScreenScore(CasfScoreCalculator):
             pred_info = {}
             for key in raw_pred_dict:
                 if not isinstance(raw_pred_dict[key], torch.Tensor): continue
-                if raw_pred_dict[key].view(-1).shape[0] != n_res: continue
+                if raw_pred_dict[key].view(-1).shape[0] != raw_pred_dict["sample_id"].shape[0]: continue
                 pred_info[key] = raw_pred_dict[key].view(-1).cpu().numpy().tolist()
 
             pred_df = pd.DataFrame(pred_info).set_index("sample_id")
@@ -153,7 +153,7 @@ class CASFBlindDockScore(CasfScoreCalculator):
             score_df = pd.DataFrame({"sample_id": sample_id, "score": score}).set_index("sample_id").join(test_record)
             if key == "MDN_LOGSUM_DIST2_REFDIST2":
                 self.docking_detailed(score_df)
-            max_score_df = score_df.set_index("file_handle").join(self.rmsd_info_df, how="outer").sort_values("score", ascending=False).drop_duplicates(["pdb_id"])
+            max_score_df = score_df.set_index("file_handle").join(self.rmsd_info_df, how="outer").sort_values("score", ascending=False).drop_duplicates(["pdb_id"]).dropna()
             scores = self.compute_scores(max_score_df)
             this_scores_df = pd.DataFrame(scores, index=[key])
             out_dfs.append(this_scores_df)

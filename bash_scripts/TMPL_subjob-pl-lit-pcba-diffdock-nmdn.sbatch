@@ -22,7 +22,7 @@ module purge
             python test.py --folder_names '{test_folder}' \
             --explicit_ds_config {ds_config} \
             --use_exist --use_tqdm --only_predict \
-            --diffdock_nmdn_result {diffdock_nmdn_result} "
+            --diffdock_nmdn_result {diffdock_nmdn_result} {pcba_extra}"
 
 ##END_MODEL_SCRIPT
 

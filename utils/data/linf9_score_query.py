@@ -14,6 +14,8 @@ class LinF9Query:
         if "tgt_pdb" in linf9_dfs.columns and "lig_pdb" in linf9_dfs.columns:
             self.is_casf_screening = True
             linf9_dfs = linf9_dfs.rename({"nmdn_linf9_score": "linf9_score"}, axis=1)
+        if "fl" in linf9_dfs.columns:
+            linf9_dfs = linf9_dfs.rename({"fl": "file_handle"}, axis=1)
         fl2linf9 = {}
         for i in range(len(linf9_dfs)):
             this_info = linf9_dfs.iloc[i]

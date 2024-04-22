@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 import logging
 import os.path as osp
 from typing import Dict, Tuple
@@ -227,8 +228,18 @@ class ProteinEmbeddingFlyDS(ProteinEmbeddingDS):
         super().__init__(**kwargs)
 
         self.idx2seq = {}
+        if not hasattr(self.data, "seq"):
+            msg = "WARNING: the data set does not have attr: seq. So the protein sequence will be " + \
+                "inferred on-the-fly from protein files, which may slow down the whole proceess."
+            print(msg)
+            logging.warn(msg)
+            seq_list = []
+            assert len(self) < 1_000, "Data set is too large to compute sequence on-the-fly!"
+            for protein_file in self.data.protein_file:
+                seq_list.append(pdb2seq(protein_file))
+            self.data.seq = seq_list
+            self.slices["seq"] = deepcopy(self.slices["protein_file"])
         for idx, seq in enumerate(self.data.seq):
-            # seq is actually [seq]
             self.idx2seq[idx] = seq
         self.seq2embed = {}
         self.esm_calculator = ESMCalculator(None)

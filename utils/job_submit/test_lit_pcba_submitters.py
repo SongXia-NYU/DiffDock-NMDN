@@ -42,6 +42,7 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
             assert osp.exists(info["ds_config"]), info["ds_config"]
         info["target"] = self.target + "-diffdock"
         info["net_id"] = os.environ["USER"]
+        info["pcba_extra"] = ""
         return info
 
     @property
@@ -69,6 +70,7 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
             if self.diffdock_nmdn:
                 nmdn_result_folder = glob(f"./exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_{target.lower()}_*")[0]
                 this_info["diffdock_nmdn_result"] = nmdn_result_folder
+            this_info["pcba_extra"] = f"--linf9_csv '/scratch/sx801/scripts/DiffDock-NMDN/scripts/benchmark-linf9-xgb/preds/{target.split('-')[0]}/*.csv' "
             res += model_script.format(**this_info)
         res += score_header.format(**self.info4tmpl)
         # write screening score calculation script (CPU only)
