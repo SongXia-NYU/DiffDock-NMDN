@@ -29,10 +29,11 @@ class LinF9LocalOptimizer:
         self.ligand_pdbqt = ligand_pdbqt
         self.ligand_linf9_opt = ligand_linf9_opt
 
-    def run(self):
+    def run(self, protdir=None):
         temp_dir = TemporaryDirectory()
         if self.protein_pdbqt is None:
-            self.protein_pdbqt = osp.join(temp_dir.name, "protein.pdbqt")
+            self.protein_pdbqt = osp.join(temp_dir.name if protdir is None else protdir, 
+                                          osp.basename(self.protein_pdb).replace(".pdb", ".pdbqt"))
         if self.ligand_pdbqt is None:
             self.ligand_pdbqt = osp.join(temp_dir.name, "ligand.pdbqt")
         if not osp.exists(self.protein_pdbqt):

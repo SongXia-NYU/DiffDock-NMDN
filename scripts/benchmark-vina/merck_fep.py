@@ -31,8 +31,9 @@ def opt():
             print(e)
             continue
         nmdn_info["file_handle"].append(f"{target}.{lig_id}")
-        nmdn_info["vina_affinity"].append(res)
-        nmdn_info["vina_score"].append(res/pKd2deltaG)
+        for score_name in res.keys():
+            nmdn_info[f"{score_name}_affinity"].append(res[score_name])
+            nmdn_info[f"{score_name}_score"].append(res[score_name]/pKd2deltaG)
 
     out_df = pd.DataFrame(nmdn_info)
     out_df.to_csv("./preds/merck-fep.csv", index=False)

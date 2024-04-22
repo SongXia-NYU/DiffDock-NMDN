@@ -952,6 +952,8 @@ def add_parser_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("--lig_identifier_src", default="ligand_file", type=str, help="Names to choose as unique identifier")
     parser.add_argument("--lig_identifier_dst", default="ligand_file", type=str, help="Names to choose as unique identifier")
     parser.add_argument("--precomputed_mol_prop", action="store_true")
+    # Precomputed LinF9 score
+    parser.add_argument("--linf9_csv", default=None, type=str, help="RMSD information")
     #----------------------------------------------------------------------------------------------#
 
     #----------------------------------------Misc Arguments----------------------------------------#

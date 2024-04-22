@@ -47,6 +47,9 @@ class HeteroPairedPropLayer(nn.Module):
         else:
             assert runtime_vars["kano_atom_embed"] is None
 
+        if hasattr(data_batch, "linf9_score"):
+            runtime_vars["pair_mol_prop"] = runtime_vars["pair_mol_prop"] + data_batch.linf9_score.view(-1, 1)
+
         return runtime_vars
 
 

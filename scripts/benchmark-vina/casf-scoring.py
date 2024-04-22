@@ -27,10 +27,30 @@ def save_nmdn_res():
             print(e)
             continue
         nmdn_out_info["pdb"].append(pdb)
+        for score_name in res.keys():
+            nmdn_out_info[f"{score_name}_affinity"].append(res[score_name])
+            nmdn_out_info[f"{score_name}_score"].append(res[score_name]/pKd2deltaG)
+
+    out_df = pd.DataFrame(nmdn_out_info)
+    out_df.to_csv("./preds/casf-scoring.csv", index=False)
+
+def save_crystal():
+    nmdn_out_info = defaultdict(lambda: [])
+    tempdir = TemporaryDirectory()
+    calc = VinaScoreCalculator(tempdir)
+    for pdb in tqdm(reader.dock_pdbs):
+        prot = f"/CASF-2016-cyang/coreset/{pdb}/{pdb}_protein.pdb"
+        lig = f"/CASF-2016-cyang/coreset/{pdb}/{pdb}_ligand.mol2"
+        try:
+            res = calc.compute_score(prot, lig)
+        except Exception as e:
+            print(e)
+            continue
+        nmdn_out_info["pdb"].append(pdb)
         nmdn_out_info["vina_affinity"].append(res)
         nmdn_out_info["vina_score"].append(res/pKd2deltaG)
 
     out_df = pd.DataFrame(nmdn_out_info)
-    out_df.to_csv("./preds/casf-scoring.csv", index=False)
+    out_df.to_csv("./preds/casf-scoring-crystal.csv", index=False)
 
 save_nmdn_res()

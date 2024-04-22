@@ -19,6 +19,14 @@ def casf_score_rank():
             with open(f"./casf_opt/{pose_select}.{score_name}.yaml", "w") as f:
                 yaml.safe_dump(scores, f)
 
+def casf_score_rank_planb():
+    out_df = pd.read_csv(f"./casf_opt/nmdn_planb_out.csv").rename({"pdb": "pdb_id"}, axis=1)
+    for score_name in ["linf9_score"]:
+        out_df["score"] = out_df[score_name]
+        scores = score_rank_power(out_df, "./casf_opt", f"nmdn_planb_out.{score_name}.png")
+        with open(f"./casf_opt/nmdn_planb_out.{score_name}.yaml", "w") as f:
+            yaml.safe_dump(scores, f)
+
 def merck_rank():
     for pose_select in ["opt_nmdn_out"]:
         out_df = pd.read_csv(f"merck-fep/{pose_select}.csv")
@@ -59,4 +67,4 @@ def casf_screen():
         yaml.safe_dump(res_linf9, f)
 
 if __name__ == "__main__":
-    merck_rank()
+    casf_score_rank_planb()

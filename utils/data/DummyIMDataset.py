@@ -24,6 +24,7 @@ from utils.data.DataPreprocessor import DataPreprocessor
 from utils.data.MyData import MyData
 from utils.data.data_utils import get_lig_natom, get_prot_natom
 
+from utils.data.linf9_score_query import LinF9Query
 from utils.data.rmsd_info_query import RMSD_Query
 from utils.utils_functions import floating_type, lazy_property
 
@@ -68,6 +69,21 @@ class DummyIMDataset(InMemoryDataset):
         self.infuse_rmsd_info: bool = (config_args["rmsd_csv"] is not None) and (not self.no_pkd_score)
         if self.infuse_rmsd_info:
             self.rmsd_query = RMSD_Query(config_args)
+        self.infuse_linf9: bool = config_args["linf9_csv"] is not None
+        if self.infuse_linf9:
+            is_casf_scoring = (config_args["linf9_csv"] == "/scratch/sx801/scripts/DiffDock-NMDN/scripts/benchmark-linf9-xgb/casf_opt/nmdn_out.csv")
+            self.query_key = "file_handle"
+            if is_casf_scoring: self.query_key = "pdb"
+            self.linf9_query = LinF9Query(config_args, self.query_key)
+
+        self.cleanup_indices_linf9()
+
+        # import json
+        # info = {"file_handle": self.data.file_handle, "protein_file": self.data.protein_file,
+        #         "ligand_file": self.data.ligand_file}
+        # with open("trainning_ds.linf9.info.json", "w") as f:
+        #     json.dump(info, f, indent=2)
+        # exit(0)
 
     def load_data_slices(self):
         # one single data set
@@ -313,7 +329,39 @@ class DummyIMDataset(InMemoryDataset):
         if process:
             res = self.post_processor(res, idx)
         res = self.try_infuse_rmsd_info(res)
+        res = self.try_infuse_linf9_info(res)
         return res
+
+    def try_infuse_linf9_info(self, data):
+        if not self.infuse_linf9: return data
+        query = getattr(data, self.query_key)
+        data.linf9_score = self.linf9_query.query_linf9(query)
+        return data
+    
+    def cleanup_indices_linf9(self):
+        if not self.infuse_linf9: return
+        # cleanup indices that do not have linf9-score
+        fl_list = getattr(self.data, self.query_key)
+        for split_name in ["train_index", "val_index", "test_index"]:
+            this_index = getattr(self, split_name)
+            if this_index is None:
+                continue
+            index_clean = []
+            for i in tqdm(this_index, desc="clean_linf9"):
+                i = i.item()
+                fl = fl_list[i]
+                if self.linf9_query.query_linf9(fl) is not None:
+                    index_clean.append(i)
+
+            index_clean = torch.as_tensor(index_clean)
+
+            n_before = len(this_index)
+            n_after = len(index_clean)
+            logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
+            assert n_after > int(0.5 * n_before), \
+                f"More than 50% indices removed due to protein embedding, before: {n_before}, after: {n_after}"
+            setattr(self, split_name, index_clean)
+        return
     
     def try_infuse_rmsd_info(self, data):
         if not self.infuse_rmsd_info:
@@ -353,9 +401,6 @@ class DummyIMDataset(InMemoryDataset):
             self.hashed_ds_name = self.hash_ds_name(possible_files, self.diffdock_nmdn_result)
             if osp.exists(osp.join(self.processed_dir, "hashed-and-saved", f"{self.hashed_ds_name}.pyg")):
                 return [f"hashed-and-saved/{self.hashed_ds_name}.pyg"]
-        
-        if len(possible_files) == 1:
-            return [self.dataset_name]
         
         # multiple files, trying to concat them for training
         file_names = [osp.relpath(f, self.processed_dir) for f in possible_files]

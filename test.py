@@ -15,6 +15,8 @@ def test_folder(folder_name, **kwargs):
             del kwargs[key]
     if kwargs["diffdock_nmdn_result"] is None:
         del kwargs["diffdock_nmdn_result"]
+    if kwargs["linf9_csv"] is None:
+        del kwargs["linf9_csv"]
     kwargs["dataset_names"] = None
     kwargs["prot_embedding_roots"] = None
     tester = Tester(folder_name=folder_name, **kwargs)
@@ -36,6 +38,7 @@ def test_all():
     parser.add_argument("--compute_external_mdn", action="store_true")
     parser.add_argument("--no_pkd_score", action="store_true", help="Only predicts NMDN score, ingnoring pKd score.")
     parser.add_argument("--diffdock_nmdn_result", default=None, type=str, action="append")
+    parser.add_argument("--linf9_csv", default=None, type=str, help="RMSD information")
     _args = parser.parse_args()
 
     run_dirs = glob.glob(_args.folder_names)
