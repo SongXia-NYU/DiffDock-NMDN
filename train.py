@@ -1,8 +1,5 @@
-from utils.utils_functions import torchdrug_imports
-torchdrug_imports()
-
 from utils.train.mdn2pkd_trainer import MDN2PKdTrainer
-from utils.train.trainer import Trainer, flex_parse, train
+from utils.train.trainer import Trainer, flex_parse
 
 
 def main():

@@ -19,6 +19,7 @@ Design-18-exp.code-workspace
 exp_pl_534_lit-pcba_backup
 
 config-*.txt
+config-*.yaml
 SUBMIT_TRAIN-*.sbatch
 subjob.pbs
 *.csv
