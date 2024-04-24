@@ -15,11 +15,12 @@ from utils.LossFn import mdn_loss_fn
 
 class ProtSingleMDNLayer(GeneralMDNLayer):
     # Add protein intra-residue interaction.
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, ltype="non-local", **kwargs) -> None:
         super().__init__("prot_embed", "prot_embed", **kwargs)
         # exlcude close interactions. For example, protprot_exclude_edge==1 means exlcude 1-2 interaction
         # protprot_exclude_edge==2 means exclude 1-2 and 1-3 interaction.
-        self.protprot_exclude_edge: Optional[int] = kwargs["cfg"]["protprot_exclude_edge"]
+        self.seq_separation_cutoff: Optional[int] = kwargs["cfg"]["protprot_exclude_edge"]
+        self.ltype = ltype
 
     def overwrite_lig_dim(self) -> Optional[int]:
         return get_prot_dim(self.config_dict)
@@ -29,9 +30,13 @@ class ProtSingleMDNLayer(GeneralMDNLayer):
 
         # exlcude close interactions. For example, protprot_exclude_edge==1 means exlcude 1-2 interaction
         # protprot_exclude_edge==2 means exclude 1-2 and 1-3 interaction.
-        if self.protprot_exclude_edge is not None:
+        if self.seq_separation_cutoff is not None:
             edge_dist: torch.LongTensor = (pp_edge[0] - pp_edge[1]).abs()
-            edge_mask: torch.BoolTensor = edge_dist > self.protprot_exclude_edge
+            if self.ltype == "non-local":
+                edge_mask: torch.BoolTensor = edge_dist > self.seq_separation_cutoff
+            else:
+                assert self.ltype == "local"
+                edge_mask: torch.BoolTensor = edge_dist <= self.seq_separation_cutoff
             pp_edge = pp_edge[:, edge_mask]
             pp_dist = pp_dist[edge_mask]
         # only obtain needed pl_edges to avoid un-needed calculation
