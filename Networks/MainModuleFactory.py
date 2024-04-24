@@ -90,7 +90,7 @@ class MainModuleFactory:
                               "MDN-KANO": KanoProtMDNLayer, "MDN-COMENET": ComENetProtMDNLayer}
             mdn_cls = mdn_cls_mapper[module_str]
             mdn_layer = mdn_cls(dropout_rate=0.15, mdn_edge_name=bonding_str,
-                                n_atom_types=n_atom_embedding, cfg=config_dict)
+                                n_atom_types=n_atom_embedding, cfg=config_dict, **m_args)
             module_list.append(mdn_layer)
             module_info_list[0]["is_transition"] = True
         elif module_str in ["MDNProp", "NMDN_AuxProp"]:
