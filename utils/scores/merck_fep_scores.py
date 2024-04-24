@@ -30,15 +30,15 @@ class MerckFEPScoreCalculator(TrainedFolder):
             scoring_test_folder = glob(osp.join(self.folder_name, "exp_*_test_on_merck_fep-diffdock_*"))[0]
         else:
             scoring_test_folder = glob(osp.join(self.folder_name, "exp_*_test_on_merck_fep_*"))[0]
-        return TestedFolderReader(osp.basename(self.folder_name),
-                    osp.basename(scoring_test_folder),
-                    osp.dirname(self.folder_name))
+        return TestedFolderReader(scoring_test_folder)
 
     def run(self):
         scoring_result = self.scoring_reader.result_mapper["test"]
-        res_info = {"sample_id": scoring_result["sample_id"],
-                    "pKd_score": scoring_result["PROP_PRED"].view(-1).numpy(),
-                    "NMDN_score": scoring_result["MDN_LOGSUM_DIST2_REFDIST2"].view(-1).numpy()}
+        # res_info = {"sample_id": scoring_result["sample_id"],
+        #             "pKd_score": scoring_result["PROP_PRED"].view(-1).numpy(),
+        #             "NMDN_score": scoring_result["MDN_LOGSUM_DIST2_REFDIST2"].view(-1).numpy()}
+        res_info = {"sample_id": scoring_result["sample_id"].cpu(),
+                    "pKd_score": scoring_result["PROP_PRED"].view(-1).cpu().numpy()}
         res_df: pd.DataFrame = pd.DataFrame(res_info).set_index("sample_id")
         record: pd.DataFrame = self.scoring_reader.only_record().set_index("sample_id")
         res_df = res_df.join(record)
@@ -46,9 +46,10 @@ class MerckFEPScoreCalculator(TrainedFolder):
             return ".".join(fl.split(".")[:-1])
         if self.diffdock:
             res_df["file_handle"] = res_df["file_handle"].map(_fl_no_rank)
-            res_df = res_df.sort_values("NMDN_score", ascending=False).drop_duplicates("file_handle")
+            # res_df = res_df.sort_values("NMDN_score", ascending=False).drop_duplicates("file_handle")
 
-        rank_info_by_score, count_info_by_target = self.compute_rank_info(res_df, ["pKd_score", "NMDN_score"])
+        # rank_info_by_score, count_info_by_target = self.compute_rank_info(res_df, ["pKd_score", "NMDN_score"])
+        rank_info_by_score, count_info_by_target = self.compute_rank_info(res_df, ["pKd_score"])
         with open(osp.join(self.save_dir, "rank_info_by_score.yaml"), "w") as f:
             yaml.safe_dump(rank_info_by_score, f)
         

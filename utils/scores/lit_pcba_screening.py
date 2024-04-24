@@ -157,8 +157,13 @@ class LIT_PCBA_ScreeningWrapper(TrainedFolder):
             record_file = osp.join(self.src_dir, f"record_name_{chunk_name}.csv")
 
             d = torch.load(test_f, map_location="cpu")
-            record_df = pd.read_csv(record_file)
-            res["score"].extend(_raw_pred2score(d["PROP_PRED"]).tolist())
+            score_info = {"sample_id": d["sample_id"].cpu().numpy().reshape(-1).tolist()}
+            for key in d.keys():
+                if key.startswith("MDN_") or key.startswith("PROP_PRED"):
+                    score_info[key] = d[key].cpu().numpy().reshape(-1).tolist()
+            score_df = pd.DataFrame(score_info).set_index("sample_id")
+            record_df = pd.read_csv(record_file).set_index("sample_id").join(score_df)
+            res["score"].extend(record_df["PROP_PRED"].values.reshape(-1).tolist())
             res["lig_id"].extend(record_df["file_handle"].values.tolist())
             if self.diffdock: res["rank"].extend(record_df["rank"].values.tolist())
             if "PROP_PRED_MDN" in d:
@@ -167,7 +172,7 @@ class LIT_PCBA_ScreeningWrapper(TrainedFolder):
             for key in d:
                 if not key.startswith("MDN_"):
                     continue
-                res[f"score_{key}"].extend(d[key].cpu().numpy().reshape(-1).tolist())
+                res[f"score_{key}"].extend(record_df[key].values.reshape(-1).tolist())
 
         score_df = pd.DataFrame(res)
         score_df.to_csv(score_csv)

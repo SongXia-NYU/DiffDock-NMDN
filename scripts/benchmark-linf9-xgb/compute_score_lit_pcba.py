@@ -8,10 +8,10 @@ from utils.scores.lit_pcba_screening import LIT_PCBA_Screen
 
 TARGETS = ["ADRB2", "ALDH1", "ESR1_ago", "ESR1_ant", "FEN1", "GBA", "IDH1", "KAT2A", 
                    "MAPK1", "MTORC1", "OPRK1", "PKM2", "PPARG", "TP53", "VDR"]
-TARGETS.remove("ESR1_ant")
-TARGETS.remove("MTORC1")
-TARGETS.remove("PPARG")
-TARGETS.remove("TP53")
+# TARGETS.remove("ESR1_ant")
+# TARGETS.remove("MTORC1")
+# TARGETS.remove("PPARG")
+# TARGETS.remove("TP53")
 
 CUR_DIR = osp.abspath(osp.dirname(__file__))
 

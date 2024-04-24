@@ -11,8 +11,8 @@ from utils.scores.lit_pcba_screening import LIT_PCBA_Screen
 from geometry_processors.pl_dataset.lit_pcba_reader import TARGETS
 
 nmdn_src_root = "/scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/lit-pcba-scores"
-pkd_src_root = "/scratch/sx801/scripts/DiffDock-NMDN/exp_pl_549_run_2024-04-10_144554__079647/lit-pcba-scores"
-sname = "pl_534_549"
+pkd_src_root = "/scratch/sx801/scripts/raw_data/exp_pl/exp_pl_544_run_2024-04-05_034213__641582/lit-pcba-scores"
+sname = "pl_534_544"
 
 for target in TARGETS:
     workdir = osp.join("/scratch/sx801/scripts/DiffDock-NMDN/scripts/lit_pcba_custom_half_n_half", sname, target)

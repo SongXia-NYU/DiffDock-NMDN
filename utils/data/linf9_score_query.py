@@ -26,6 +26,7 @@ class LinF9Query:
             linf9 = this_info["linf9_score"]
             fl2linf9[fl] = linf9
         self.fl2linf9 = fl2linf9
+        self.is_merck_fep = "/merck-fep/" in self.linf9_csv
 
         # count the stats
         self.query_count: int = 0
@@ -34,6 +35,8 @@ class LinF9Query:
     def query_linf9(self, query: str):
         if self.is_casf_screening:
             query = query.split(".")[0]
+        if self.is_merck_fep:
+            query = ".".join(query.split(".")[:-1])
         self.query_count += 1
          # if too many ligands are missing RMSD values, something went wrong
         if self.query_count >= 1_000:

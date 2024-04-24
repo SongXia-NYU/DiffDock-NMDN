@@ -133,7 +133,7 @@ class DummyIMDataset(InMemoryDataset):
             for i in range(len(dummy_ds)):
                 this_d = dummy_ds[i]
                 fl = this_d.file_handle
-                if hasattr(this_d, "rank"):
+                if hasattr(this_d, "rank") and "test_on_merck_fep-diffdock" not in osp.basename(diffdock_nmdn_result[0]):
                     fl += "." + str(this_d.rank.item())
                 if fl in selected_fl:
                     if "ion" in this_d.node_types:
@@ -162,6 +162,8 @@ class DummyIMDataset(InMemoryDataset):
             nmdn_score_dfs.append(record_df)
         nmdn_score_dfs = pd.concat(nmdn_score_dfs)
         nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: s.split(".")[0])
+        if "test_on_merck_fep-diffdock" in osp.basename(nmdn_test_folder):
+            nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: ".".join(s.split(".")[:-1]))
         if nmdn_score_dfs.iloc[0]["file_handle"].startswith("nonbinders."):
             # Yaowen nonbinder data set
             nmdn_score_dfs["pdb_id"] = nmdn_score_dfs["file_handle"].map(lambda s: ".".join(s.split(".")[1:3]))
