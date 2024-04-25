@@ -173,7 +173,7 @@ class PhysDimeNet(nn.Module):
             activation: str = self.activations[i]
             module_list, module_info_list = module_factory.get_module(module_str, bonding_str, activation, self.n_output, energy_scale, energy_shift)
             # special logics for MDN layer
-            if module_str in self.MDN_MODULE_NAMES:
+            if module_str.split("[")[0] in self.MDN_MODULE_NAMES:
                 self.mdn_layer = module_list[0]
                 module_list = [None]
                 for module_str in module_str_list[:i]:
