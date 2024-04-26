@@ -171,7 +171,7 @@ class AtomContribAnalyzer(TrainedFolder):
     @property
     def save_root(self):
         if self._test_dir is None:
-            test_prefix = self.args["folder_prefix"] + '_atom_contrib_'
+            test_prefix = self.cfg["folder_prefix"] + '_atom_contrib_'
             current_time = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             tmp = test_prefix + current_time
             self._test_dir = osp.join(self.folder_name, osp.basename(tmp))

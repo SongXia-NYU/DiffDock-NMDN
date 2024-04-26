@@ -30,7 +30,7 @@ def pred_mdn():
     modeldir = "./exp_pl_534_run_2024-01-22_211045__480688"
     wanted_pdb = "6fap"
 
-    args = Tester(modeldir).args
+    args = Tester(modeldir).cfg
     args["mdn_w_lig_atom_props"] = 0.
     args["mdn_w_prot_sasa"] = 0.
     tester = Tester(modeldir, explicit_ds_config=args)

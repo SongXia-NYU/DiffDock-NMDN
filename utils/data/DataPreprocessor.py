@@ -1,15 +1,16 @@
 from typing import Any, Union
 
+from utils.configs import Config
 from utils.data.MyData import MyData
 from torch_geometric.data import HeteroData
 
 
 class DataPreprocessor:
-    def __init__(self, cfg: dict) -> None:
+    def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
         if cfg is None:
             return
-        self.proc_lit_pcba = cfg["proc_lit_pcba"]
+        self.proc_lit_pcba = cfg.data.proc_lit_pcba
 
     def __call__(self, data: Union[MyData, HeteroData], idx: int) -> Union[MyData, HeteroData]:
         if self.cfg is None:

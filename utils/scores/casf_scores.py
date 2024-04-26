@@ -395,7 +395,7 @@ class CasfScoreCalculator(TrainedFolder):
         else:
             assert isinstance(prop_pred, np.ndarray)
 
-        if self.args["auto_pl_water_ref"]:
+        if self.cfg["auto_pl_water_ref"]:
             return prop_pred[:, -1].reshape(-1) / pKd2deltaG
         else:
             return prop_pred.reshape(-1)
@@ -405,7 +405,7 @@ class CasfScoreCalculator(TrainedFolder):
         if self._use_mixed_scores is None:
             # model are trained on both MDN loss and regression loss of pKd
             # as a result, model can predict both geometry probability as well as pKd
-            self._use_mixed_scores = (self.args["loss_metric"].startswith("mdn_"))
+            self._use_mixed_scores = (self.cfg["loss_metric"].startswith("mdn_"))
         return self._use_mixed_scores
 
     @lazy_property
@@ -443,7 +443,7 @@ class CasfScoreCalculator(TrainedFolder):
         return self.get_folder(name)
 
     def get_folder(self, dataset):
-        prefix = osp.basename(self.args["folder_prefix"])
+        prefix = osp.basename(self.cfg["folder_prefix"])
         folders = glob(osp.join(self.folder_name, f"{prefix}_test_on_{dataset}_*"))
         folders.sort()
         assert len(folders) > 0

@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
-from omegaconf import OmegaConf, MISSING
+from glob import glob
+import os.path as osp
 
+from omegaconf import OmegaConf, MISSING
 
 @dataclass
 class ModelConfig:
@@ -15,18 +17,17 @@ class ModelConfig:
     n_feature: int = MISSING
     cutoffs: str = MISSING
     n_atom_embedding: int = 95
-    restrain_non_bond_pred: bool = False
     # none | concreteDropoutModule | concreteDropoutOutput | swag_${start}_${freq}
     uncertainty_modify: str = "none"
     # calculate charge correction when calculation Coulomb interaction
     coulomb_charge_correct: bool = False
     # sum | mem_pooling[heads=?,num_clusters=?,tau=?,n_output=?]
     pooling: str = "sum"
+    n_output: int = 1
     use_trained_model: Optional[str] = None
     # Use shadow model (best model) to initialize both training and shadow model 
     # This is helpful when you want to freeze some parameters without messing up the weights by SWA
     ft_discard_training_model: bool = False
-    freeze_option: str = "none"
     reset_optimizer: bool = True
     reset_output_layers: bool = False
     reset_scale_shift: bool = False
@@ -34,16 +35,13 @@ class ModelConfig:
     batch_norm: bool = False
     dropout: bool = False
     requires_atom_embedding: bool = False
-    lin_last: bool = False
     last_lin_bias: bool = False
-    ext_atom_features: Optional[str] = None
 
     @dataclass
     class PhysNetConfig:
         n_phys_atomic_res: int = 1
         n_phys_interaction_res: int = 1
         n_phys_output_res: int = 1
-        n_output: int = 1
     physnet: PhysNetConfig = field(default_factory=PhysNetConfig)
 
     @dataclass 
@@ -54,10 +52,6 @@ class ModelConfig:
         # Number of MLP layer in the MDN layer
         n_mdn_layers: int = 1
         n_mdnprop_layers: int = 1
-        # pair_prob_transformed | pair_nll_transformed
-        cross_mdn_prop_name: str = "pair_prob_transformed"
-        # pair_mean | mol_sum_mean
-        cross_mdn_behaviour: str = "pair_mean"
         mdn_threshold_train: Optional[float] = None
         mdn_threshold_eval: Optional[float] = None
         mdn_threshold_prop: Optional[float] = None
@@ -65,8 +59,6 @@ class ModelConfig:
         # the distance expansion function for MDN paired properties prediction
         mdn_dist_expansion: Optional[str] = None
         pair_prop_dist_coe: Optional[str] = None
-        # replace_with_aa_feats | ignore
-        martini2aa_action: str = "replace_with_aa_feats"
         n_mdn_gauss: int = 10
         pkd_phys_terms: Optional[str] = None
         pkd_phys_concat: bool = False
@@ -84,6 +76,7 @@ class ModelConfig:
         val_pair_prob_dist_coe: Optional[str] = None
         hist_pp_intra_mdn: bool = False
         nmdn_eval: bool = False
+        compute_external_mdn: bool = True
     mdn: MDNConfig = field(default_factory=MDNConfig)
 
     @dataclass
@@ -97,8 +90,6 @@ class ModelConfig:
     @dataclass
     class NormalizationConfig:
         normalize: bool = True
-        shared_normalize_param: bool = False
-        uni_task_ss: bool = False
         train_shift: bool = True
     normalization: NormalizationConfig = field(default_factory=NormalizationConfig)
 
@@ -118,6 +109,8 @@ class ModelConfig:
 
 @dataclass
 class TrainingConfig:
+    batch_size: int = MISSING
+    valid_batch_size: int = MISSING
     num_epochs: int = 1000
     # early stopping, set to -1 to disable
     early_stop: int = -1
@@ -142,16 +135,12 @@ class TrainingConfig:
         loss_metric: str = "mae"
         w_mdn: float = 1.
         w_regression: float = 1.
-        w_cross_mdn_pkd: float = 0.
         mdn_w_lig_atom_types: float = 0.
         mdn_w_prot_atom_types: float = 0.
         mdn_w_lig_atom_props: float = 0.
         mdn_w_prot_sasa: float = 0.
         keep: Optional[str] = None
-        flex_sol: bool = False
-        ligand_only: bool = False
         l2lambda: float = 0.
-        nh_lambda: float = 0.
         force_weight: float = 1.
         charge_weight: float = 1.
         dipole_weight: float = 1.
@@ -161,18 +150,17 @@ class TrainingConfig:
         auto_sol: bool = False
         auto_sol_no_conv: bool = False
         target_nodes: Union[bool, int] = False
-        lamda_sol: Optional[float] = None
-        auto_pl_water_ref: bool = False    
+        auto_pl_water_ref: bool = False   
+        no_pkd_score: bool = False 
     loss_fn: LossFnConfig = field(default_factory=LossFnConfig)
 
 @dataclass
 class DataConfig:
     data_provider: str = MISSING
-    batch_size: int = MISSING
-    valid_batch_size: int = MISSING
     over_sample: bool = False
     data_root: str = "../dataProviders/data"
-    dataset_name: Union[str, List[str], None] = None
+    dataset_name: Union[str, None] = None
+    dataset_names: Optional[List[str]] = None
     split: Optional[str] = None
     diffdock_nmdn_result: Optional[List[str]] = None
     diffdock_confidence: bool = False
@@ -190,13 +178,14 @@ class DataConfig:
     class PrecomputedConfig:
         prot_info_ds: Optional[str] = None
         atom_prop_ds: Optional[str] = None
-        prot_embedding_root: Union[str, List[str], None] = None
+        prot_embedding_root: Union[List[str], None] = None
         lig_identifier_src: str = "ligand_file"
         lig_identifier_dst: str = "ligand_file"
         precomputed_mol_prop: bool = False
         linf9_csv: Optional[str] = None
         rmsd_csv: Optional[str] = None
         rmsd_expansion: Optional[str] = None
+    pre_computed: PrecomputedConfig = field(default_factory=PrecomputedConfig)
 
     test_name: Optional[str] = None
     test_set: Optional[str] = None
@@ -212,4 +201,18 @@ class Config:
     training: TrainingConfig = field(default_factory=TrainingConfig)
     data: DataConfig = field(default_factory=DataConfig)
 
-schema = OmegaConf.structured(Config)
+    # test_specific:
+    short_name: Optional[str] = None
+    record_name: Optional[List[str]] = None
+
+schema: Config = OmegaConf.structured(Config)
+
+def read_folder_config(folder_name: str) -> Config:
+    config_file = glob(osp.join(folder_name, 'config-*.yaml'))[0]
+    args = read_config_file(config_file)
+    return args, config_file
+
+def read_config_file(config_file: str) -> Config:
+    config = OmegaConf.load(config_file)
+    config: Config = OmegaConf.merge(schema, config)
+    return config

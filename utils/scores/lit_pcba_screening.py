@@ -77,7 +77,7 @@ class LIT_PCBA_ScreeningWrapper(TrainedFolder):
         half_half_calc.run(best_score_df)
 
         # only run for PL422
-        if osp.basename(self.args["folder_prefix"]) != "exp_pl_422": return self.cleanup_csv()
+        if osp.basename(self.cfg["folder_prefix"]) != "exp_pl_422": return self.cleanup_csv()
 
         for mdn_col_name in ["score_MDN_SUM_DIST2_REF", "score_MDN_LOGSUM_REF", "score_MDN_LOGSUM_DIST2_REFDIST2"]:
             dst_dir = osp.join(self.dst_dir, mdn_col_name)
@@ -120,7 +120,7 @@ class LIT_PCBA_ScreeningWrapper(TrainedFolder):
             return
 
         def _raw_pred2score(pred: torch.Tensor):
-            if self.args["auto_pl_water_ref"]:
+            if self.cfg["auto_pl_water_ref"]:
                 return pred[:, -1].cpu().numpy().reshape(-1) / pKd2deltaG
             else:
                 return pred.cpu().numpy().reshape(-1)

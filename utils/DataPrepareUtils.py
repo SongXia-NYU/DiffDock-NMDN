@@ -10,7 +10,7 @@ from torch_geometric.data import Data
 from tqdm import tqdm
 import os.path as osp
 
-from utils.utils_functions import cal_edge, get_device, floating_type
+from utils.utils_functions import cal_edge, floating_type
 
 hartree2ev = Hartree / eV
 

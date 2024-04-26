@@ -10,7 +10,7 @@ import os.path as osp
 import pandas as pd
 
 def debug_kano_pdbind_ds():
-    pyg_ds = DummyIMDataset(data_root="/scratch/sx801/data/im_datasets/", dataset_name="PBind2020OG.polar.polar.implicit.min_dist.linf9.pyg", config_args=None)
+    pyg_ds = DummyIMDataset(data_root="/scratch/sx801/data/im_datasets/", dataset_name="PBind2020OG.polar.polar.implicit.min_dist.linf9.pyg", cfg=None)
     with open("/scratch/sx801/data/im_datasets/processed/pdbbind2020_og_kano.lite.pickle", "rb") as f:
         kano_ds: dict = pickle.load(f)
     for pygd in pyg_ds:

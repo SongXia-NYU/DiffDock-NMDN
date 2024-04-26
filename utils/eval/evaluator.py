@@ -1,21 +1,17 @@
-import logging
 import math
 from typing import Dict, Union
 import torch
 import torch.nn as nn
 
 from torch_geometric.loader import DataLoader
-from copy import copy
 
 from utils.LossFn import BaseLossFn
+from utils.configs import Config
 from utils.data.data_utils import data_to_device
 from utils.tags import tags
-from utils.utils_functions import get_device
-
-from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
 
 class Evaluator:
-    def __init__(self, mol_lvl_detail=False, cfg: dict=None) -> None:
+    def __init__(self, mol_lvl_detail=False, cfg: Config=None) -> None:
         self.mol_lvl_detail: bool = mol_lvl_detail
         self.cfg = cfg
 
@@ -38,13 +34,9 @@ class Evaluator:
         model.eval()
         for i, val_data in enumerate(data_loader):
             val_data = data_to_device(val_data)
-            try:
-                model_out = model(val_data)
-            except InitEdgeRotError as e:
-                logging.error(f"InitEdgeRotError during validation: {str(e)}, skipping {val_data.pdb}")
-                continue
+            model_out = model(val_data)
             aggr_loss, batch_detail = loss_fn(model_out, val_data, False, True, mol_lvl_detail=self.mol_lvl_detail)
-            if self.cfg["nmdn_eval"]:
+            if self.cfg.model.mdn.nmdn_eval:
                 aggr_loss = -batch_detail["MDN_LOGSUM_DIST2_REFDIST2"].sum().cpu()
             self.record_detail(aggr_loss, batch_detail)
             self.n_batchs += 1

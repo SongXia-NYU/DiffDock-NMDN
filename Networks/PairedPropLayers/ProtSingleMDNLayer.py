@@ -23,7 +23,7 @@ class ProtSingleMDNLayer(GeneralMDNLayer):
         self.ltype = ltype
 
     def overwrite_lig_dim(self) -> Optional[int]:
-        return get_prot_dim(self.config_dict)
+        return get_prot_dim(self.cfg)
 
     def unpack_pl_info(self, runtime_vars: dict) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Data]:
         h_1, h_2, h_1_i, h_2_j, pp_edge, pp_dist, data_batch, pair_batch = super().unpack_pl_info(runtime_vars)

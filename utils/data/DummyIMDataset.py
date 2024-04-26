@@ -1,4 +1,3 @@
-from collections import defaultdict
 import copy
 from functools import cached_property
 from glob import glob
@@ -6,7 +5,6 @@ import hashlib
 import logging
 import os
 import os.path as osp
-import time
 import warnings
 from typing import Dict, List, Optional
 
@@ -15,11 +13,11 @@ import copy
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
-from torch.utils.data import ConcatDataset
 import torch_geometric
 from torch_geometric.data import InMemoryDataset, Data, HeteroData
 from tqdm import tqdm
 from ase.units import Hartree, eV
+from utils.configs import Config
 from utils.data.DataPreprocessor import DataPreprocessor
 from utils.data.MyData import MyData
 from utils.data.data_utils import get_lig_natom, get_prot_natom
@@ -32,17 +30,17 @@ hartree2ev = Hartree / eV
 
 
 class DummyIMDataset(InMemoryDataset):
-    def __init__(self, data_root, dataset_name, config_args, split=None, sub_ref=False,
+    def __init__(self, data_root, dataset_name, cfg: Config, split=None, sub_ref=False,
                  **kwargs):
         self.sub_ref = sub_ref
         self.dataset_name = dataset_name
         self.split = split
-        self.cfg: dict = config_args
-        self.diffdock_nmdn_result = self.cfg["diffdock_nmdn_result"] if self.cfg else None
+        self.cfg: Config = cfg
+        self.diffdock_nmdn_result = self.cfg.data.diffdock_nmdn_result if self.cfg else None
         super().__init__(data_root, None, None)
         from utils.data.DataPostProcessor import DataPostProcessor
-        self.pre_processor = DataPreprocessor(config_args)
-        self.post_processor = DataPostProcessor(config_args)
+        self.pre_processor = DataPreprocessor(cfg)
+        self.post_processor = DataPostProcessor(cfg)
         self.load_data_slices()
         if not isinstance(self.data, (MyData, HeteroData)):
             self.data = MyData.from_data(self.data)
@@ -57,33 +55,25 @@ class DummyIMDataset(InMemoryDataset):
             del self.data[unwanted_key]
             del self.slices[unwanted_key]
 
-        if config_args is None:
+        if cfg is None:
             return
         
-        if config_args["debug_mode"]:
-            self.debug_mode_modify(config_args)
-        # training a DiffDock confidence model-like classfication model
-        self.rmsd_threshold: Optional[float] = config_args["rmsd_threshold"]
-        self.no_pkd_score: bool = config_args.get("no_pkd_score", False)
+        if cfg["debug_mode"]:
+            self.debug_mode_modify(cfg)
+
+        self.no_pkd_score: bool = cfg.training.loss_fn.no_pkd_score
         # The RMSD of ligands after MMFF optimization. Used as a feature to predict pKd.
-        self.infuse_rmsd_info: bool = (config_args["rmsd_csv"] is not None) and (not self.no_pkd_score)
+        self.infuse_rmsd_info: bool = (cfg.data.pre_computed.rmsd_csv is not None) and (not self.no_pkd_score)
         if self.infuse_rmsd_info:
-            self.rmsd_query = RMSD_Query(config_args)
-        self.infuse_linf9: bool = config_args["linf9_csv"] is not None
+            self.rmsd_query = RMSD_Query(cfg)
+        self.infuse_linf9: bool = cfg.data.pre_computed.linf9_csv is not None
         if self.infuse_linf9:
-            is_casf_scoring = (config_args["linf9_csv"] == "/scratch/sx801/scripts/DiffDock-NMDN/scripts/benchmark-linf9-xgb/casf_opt/nmdn_out.csv")
+            is_casf_scoring = (cfg.data.pre_computed.linf9_csv == "/scratch/sx801/scripts/DiffDock-NMDN/scripts/benchmark-linf9-xgb/casf_opt/nmdn_out.csv")
             self.query_key = "file_handle"
             if is_casf_scoring: self.query_key = "pdb"
-            self.linf9_query = LinF9Query(config_args, self.query_key)
+            self.linf9_query = LinF9Query(cfg, self.query_key)
 
         self.cleanup_indices_linf9()
-
-        # import json
-        # info = {"file_handle": self.data.file_handle, "protein_file": self.data.protein_file,
-        #         "ligand_file": self.data.ligand_file}
-        # with open("trainning_ds.linf9.info.json", "w") as f:
-        #     json.dump(info, f, indent=2)
-        # exit(0)
 
     def load_data_slices(self):
         # one single data set
@@ -102,10 +92,10 @@ class DummyIMDataset(InMemoryDataset):
             return
 
         # Use diffdock sampled pose for training
-        if self.cfg["diffdock_confidence"]:
+        if self.cfg.data.diffdock_confidence:
             selected_data_list = []
             for ds_name in tqdm(self.processed_file_names, desc="Loading diffdock-nmdn datasets"):
-                dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, config_args=None)
+                dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, cfg=None)
                 for i in range(len(dummy_ds)):
                     this_d = dummy_ds[i]
                     fl = this_d.file_handle
@@ -129,7 +119,7 @@ class DummyIMDataset(InMemoryDataset):
 
         selected_data_list = []
         for ds_name in tqdm(self.processed_file_names, desc="Loading diffdock-nmdn datasets"):
-            dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, config_args=None)
+            dummy_ds: DummyIMDataset = DummyIMDataset(self.root, ds_name, cfg=None)
             for i in range(len(dummy_ds)):
                 this_d = dummy_ds[i]
                 fl = this_d.file_handle
@@ -192,13 +182,13 @@ class DummyIMDataset(InMemoryDataset):
         self.data.pdb = pdb_list
         self.slices["pdb"] = copy.copy(self.slices["protein_file"])
 
-    def debug_mode_modify(self, cfg: dict):
+    def debug_mode_modify(self, cfg: Config):
         # In debug mode, the data set tries to load a minimal amount of data to reduce resource usage
         # By default, 1000 trainning examples and 100 validation examples are randomly selected from
         # the original data set.
         logging.info(("***********DEBUG MODE ON, Result not trustworthy***************"))
-        n_train: int = cfg["debug_mode_n_train"]
-        n_val: int = cfg["debug_mode_n_val"]
+        n_train: int = cfg.data.debug_mode_n_train
+        n_val: int = cfg.data.debug_mode_n_val
         if self.train_index is not None:
             perm = torch.randperm(len(self.train_index))
             self.train_index = self.train_index[perm[:n_train]]
@@ -266,9 +256,9 @@ class DummyIMDataset(InMemoryDataset):
             return
         
         if split == "random_split":
-            valid_size = int(self.cfg["valid_size"])
+            valid_size = int(self.cfg.data.valid_size)
             train_index = torch.arange(len(self))
-            np.random.seed(self.cfg["split_seed"])
+            np.random.seed(self.cfg.data.split_seed)
             perm_matrix = np.random.permutation(len(train_index))
             self.train_index = train_index[perm_matrix[:-valid_size]]
             self.val_index = train_index[perm_matrix[-valid_size:]]
@@ -290,7 +280,7 @@ class DummyIMDataset(InMemoryDataset):
         if rand_val_index and split_data["train_index"] is None:
             rand_val_index = False
         if rand_val_index:
-            valid_size = int(self.cfg["valid_size"])
+            valid_size = int(self.cfg.data.valid_size)
             warnings.warn("You are randomly generating valid set from training set")
             train_index = torch.as_tensor(split_data["train_index"]).long()
             np.random.seed(2333)
@@ -324,9 +314,6 @@ class DummyIMDataset(InMemoryDataset):
         res = self.pre_processor(res, idx)
         if self.cfg is None:
             return res
-
-        if self.rmsd_threshold is not None:
-            res.within_cutoff = (res.rmsd < self.rmsd_threshold).long()
 
         if process:
             res = self.post_processor(res, idx)
@@ -368,9 +355,9 @@ class DummyIMDataset(InMemoryDataset):
     def try_infuse_rmsd_info(self, data):
         if not self.infuse_rmsd_info:
             return data
-        query: str = getattr(data, self.cfg["lig_identifier_src"])
+        query: str = getattr(data, self.cfg.data.pre_computed.lig_identifier_src)
         # "short_name" is only during testing on external test sets such as CASF-2016 and LIT-PCBA
-        short_name: str = self.cfg["short_name"] if "short_name" in self.cfg else None
+        short_name: str = self.cfg["short_name"]
         if short_name == "casf2016-docking":
             query = data.ligand_file
             if isinstance(query, list): query = query[0]
@@ -391,8 +378,8 @@ class DummyIMDataset(InMemoryDataset):
         possible_files: List[str] = glob(osp.join(self.processed_dir, self.dataset_name))
         if self.cfg and self.cfg["debug_mode"]:
             possible_files = possible_files[0:1]
-        if self.cfg and self.cfg["dataset_names"]:
-            for additional_files in self.cfg["dataset_names"]:
+        if self.cfg and self.cfg.data.dataset_names:
+            for additional_files in self.cfg.data.dataset_names:
                 this_files = glob(osp.join(self.processed_dir, additional_files))
                 if self.cfg["debug_mode"]:
                     this_files = this_files[0:1]
@@ -429,8 +416,8 @@ class DummyIMDataset(InMemoryDataset):
 
 
 class AuxPropDataset(DummyIMDataset):
-    def __init__(self, data_root, config_args, **kwargs):
-        super().__init__(data_root=data_root, config_args=config_args, **kwargs)
+    def __init__(self, data_root, cfg: Config, **kwargs):
+        super().__init__(data_root=data_root, cfg=cfg, **kwargs)
 
         # prepare pdb mapper information which is needed to fetch SASA information
         idx2pdb_mapper = {}
@@ -439,7 +426,7 @@ class AuxPropDataset(DummyIMDataset):
         is_merck_fep: bool = "merck.fep" in self.dataset_name
         for i in tqdm(range(len(self)), desc="idx2pdb", total=len(self)):
             this_d = super().get(i, process=False)
-            lig_identifier = getattr(this_d, self.cfg["lig_identifier_dst"], None)
+            lig_identifier = getattr(this_d, self.cfg.data.pre_computed.lig_identifier_dst, None)
             if isinstance(lig_identifier, list): 
                 lig_identifier = lig_identifier[0]
             idx2lig_mapper[i] = self._lig_file_hash(lig_identifier)
@@ -477,13 +464,14 @@ class AuxPropDataset(DummyIMDataset):
         # you do not want to save protein geometries multiple times.
         self.prot_info_mapper = None
         self.prot_infuse_keys = set(["N_prot", "PP_min_dist_oneway_dist", "PP_min_dist_oneway_edge_index"])
-        if config_args["prot_info_ds"] is not None:
+        if cfg.data.pre_computed.prot_info_ds is not None:
             prot_info_mapper = {}
             # ensuring proper RMSD info
-            prot_info_ds_args: dict = copy.deepcopy(config_args)
-            if "short_name" in prot_info_ds_args: del prot_info_ds_args["short_name"]
-            prot_info_ds_args["rmsd_csv"] = "/vast/sx801/geometries/PL_physics_infusion/PDBBind2020_OG/info/pdbbind2020_og.rmsd.csv"
-            prot_info_ds =  DummyIMDataset(data_root, config_args["prot_info_ds"], prot_info_ds_args)
+            prot_info_cfg: Config = copy.deepcopy(cfg)
+            prot_info_cfg.short_name = None
+            prot_info_cfg.data.pre_computed.rmsd_csv = "/vast/sx801/geometries/PL_physics_infusion/PDBBind2020_OG/info/pdbbind2020_og.rmsd.csv"
+            prot_info_cfg.data.pre_computed.lig_identifier_dst = "pdb"
+            prot_info_ds =  DummyIMDataset(data_root, cfg.data.pre_computed.prot_info_ds, prot_info_cfg)
             for i in range(len(prot_info_ds)):
                 this_d = prot_info_ds[i]
                 this_pdb = osp.basename(this_d.protein_file[0]).split("_")[0]
@@ -494,22 +482,20 @@ class AuxPropDataset(DummyIMDataset):
 
         self.is_testing = (self.train_index is None)
         # use explicit ds argument will trigger atom_prop infusion
-        self.mdn_w_lig_atom_props = config_args["mdn_w_lig_atom_props"]
-        self.mdn_w_prot_sasa = config_args["mdn_w_prot_sasa"]
-        self.want_atom_prop: bool = (config_args["atom_prop_ds"] is not None) and (not self.is_testing and self.mdn_w_lig_atom_props > 0.)
+        self.mdn_w_lig_atom_props = cfg.training.loss_fn.mdn_w_lig_atom_props
+        self.mdn_w_prot_sasa = cfg.training.loss_fn.mdn_w_prot_sasa
+        self.want_atom_prop: bool = (cfg.data.pre_computed["atom_prop_ds"] is not None) and (not self.is_testing and self.mdn_w_lig_atom_props > 0.)
         self.want_prot_prop: bool = (not self.is_testing and self.mdn_w_prot_sasa > 0.)
-        self.want_mol_prop: bool = self.cfg["precomputed_mol_prop"] and not (self.no_pkd_score)
+        self.want_mol_prop: bool = cfg.data.pre_computed.precomputed_mol_prop and not (self.no_pkd_score)
         # Special logic: when testing on external test sets ("short_name" is available in config)
         # the pre-computed mol_prop is no longer useful and want_mol_prop has to be disabled.
         # Instead, mol_prop will be computed on-the-fly in MPNNPairedPropLayer
-        if "short_name" in self.cfg and self.cfg["short_name"] == "casf2016-scoring":
+        if self.cfg["short_name"] == "casf2016-scoring":
             self.want_mol_prop = False
-
-        self.delta_learning_pkd = config_args["delta_learning_pkd"]
 
         if self.want_prot_prop:
             # prepare SASA mapper information
-            prot_sasa_ds = DummyIMDataset(data_root, "PDBind_v2020OG_prot.martini_sasa.pyg", config_args)
+            prot_sasa_ds = DummyIMDataset(data_root, "PDBind_v2020OG_prot.martini_sasa.pyg", cfg)
             prot_sasa_mapper = {}
             for i in range(len(prot_sasa_ds)):
                 this_d = prot_sasa_ds.get(i, process=False)
@@ -532,7 +518,7 @@ class AuxPropDataset(DummyIMDataset):
             this_d = atom_props_ds.get(i, process=False)
             this_atom_prop = this_d.atom_prop
             idenfifier: str = getattr(this_d, self.cfg["lig_identifier_src"])
-            if self.cfg["lig_identifier_src"] != "pdb": idenfifier = idenfifier[0]
+            if isinstance(idenfifier, list): idenfifier = idenfifier[0]
             assert isinstance(idenfifier, str), idenfifier.__class__
             idenfifier = self._lig_file_hash(idenfifier)
             atom_prop_mapper[idenfifier] = this_atom_prop
@@ -544,7 +530,7 @@ class AuxPropDataset(DummyIMDataset):
             return None
         atom_props_ds_list = self.aquire_atom_prop_ds()
         mol_prop_mapper = {}
-        lig_identifier = self.cfg["lig_identifier_src"]
+        lig_identifier = self.cfg.data.pre_computed.lig_identifier_src
         if "merck.fep" in self.dataset_name:
             lig_identifier = "file_handle_ranked"
         for atom_props_ds in atom_props_ds_list:
@@ -559,16 +545,16 @@ class AuxPropDataset(DummyIMDataset):
         return mol_prop_mapper
 
     def aquire_atom_prop_ds(self):        
-        if self.cfg["atom_prop_ds"] is not None:
-            atom_prop_ds_list: List[str] = glob(osp.join(self.root, "processed", self.cfg["atom_prop_ds"]))
+        if self.cfg.data.pre_computed.atom_prop_ds is not None:
+            atom_prop_ds_list: List[str] = glob(osp.join(self.root, "processed", self.cfg.data.pre_computed.atom_prop_ds))
             assert len(atom_prop_ds_list) > 0
             atom_prop_ds_list = [osp.relpath(f, osp.join(self.root, "processed")) for f in atom_prop_ds_list]
-            prop_ds_args: dict = copy.deepcopy(self.cfg)
-            prop_ds_args["precomputed_mol_prop"] = False
-            if "short_name" in prop_ds_args: del prop_ds_args["short_name"]
-            prop_ds_args["rmsd_csv"] = None
-            prop_ds_args["proc_lit_pcba"] = False
-            atom_props_ds_list = [DummyIMDataset(self.root, f, prop_ds_args) for f in atom_prop_ds_list]
+            prop_cfg: Config = copy.deepcopy(self.cfg)
+            prop_cfg.data.pre_computed.precomputed_mol_prop = False
+            prop_cfg.short_name = None
+            prop_cfg.data.pre_computed.rmsd_csv = None
+            prop_cfg.data.proc_lit_pcba = False
+            atom_props_ds_list = [DummyIMDataset(self.root, f, prop_cfg) for f in atom_prop_ds_list]
             # atom_props_ds = ConcatDataset(atom_props_ds_list)
             return atom_props_ds_list
         
@@ -651,14 +637,8 @@ class AuxPropDataset(DummyIMDataset):
             res.atom_prop = self.atom_prop_mapper[this_lig]
             res.mdn_w_lig_atom_props = torch.zeros(N_l).type(floating_type).fill_(self.mdn_w_lig_atom_props)
         else:
-            # delta machine learning with missing data is not implemented yet
-            assert not self.delta_learning_pkd
             res.atom_prop = torch.zeros(N_l, 3).type(floating_type)
             res.mdn_w_lig_atom_props = torch.zeros(N_l).type(floating_type).fill_(0.)
-        if self.delta_learning_pkd:
-            # base_value will be picked up by LossFn to calculate corrected prediction
-            # we want pred minus water_energy to be the correct energy
-            res.base_value = - res.atom_prop[:, 1].sum(dim=0)
         assert res.atom_prop.shape[0] == N_l, f"{res.atom_prop.shape}; {N_l}"
         return res
     
@@ -679,7 +659,7 @@ class AuxPropDataset(DummyIMDataset):
         if "/" not in lig_file: return lig_file
         # As of 11/22 you can use any identifier, like: pdb_id
         # the hashing only works for ligand files
-        if self.cfg["lig_identifier_src"] != "ligand_file": return lig_file
+        if self.cfg.data.pre_computed.lig_identifier_src != "ligand_file": return lig_file
 
         base = osp.basename(lig_file)
         dir1 = osp.basename(osp.dirname(lig_file))

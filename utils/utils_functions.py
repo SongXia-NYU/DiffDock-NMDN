@@ -14,14 +14,11 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
 from functools import partial
 
 import numpy as np
 import torch
-import torch_geometric
 from torch_geometric.data import Dataset
-from ase import Atoms
 from scipy.spatial import KDTree
 from torch.optim.swa_utils import AveragedModel
 from torch_scatter import scatter
@@ -29,7 +26,7 @@ from torch_scatter import scatter
 # Constants:
 
 # Coulomb’s constant in eV A and e
-from utils.time_meta import record_data
+from utils.configs import Config
 
 k_e = 14.399645352
 # CPU device, part of the functions are calculated faster in cpu
@@ -680,34 +677,10 @@ def option_solver(option_txt, type_conversion=False, return_base=False):
         return result
 
 
-def preprocess_config(config_dict: dict):
-    config_dict = copy.deepcopy(config_dict)
-    # long long ago, I did not know that action="store_true" exists.
-    for bool_key in ["debug_mode", "auto_sol", "reset_optimizer", "target_nodes", "reset_output_layers",
-                     "normalize", "shared_normalize_param", "restrain_non_bond_pred", "reset_scale_shift",
-                     "coulomb_charge_correct", "batch_norm", "uni_task_ss", "requires_atom_embedding", "lin_last",
-                     "last_lin_bias", "train_shift", "mask_z", "time_debug", "mem_debug"]:
-        assert config_dict[bool_key] is not None, f"{bool_key} is not set!"
-        if isinstance(config_dict[bool_key], str):
-            config_dict[bool_key] = (config_dict[bool_key].lower() != "false")
-        else:
-            assert isinstance(config_dict[bool_key], bool)
-    if isinstance(config_dict["use_trained_model"], str):
-        # super confusing, will make it clearer when possible
-        config_dict["use_trained_model"] = config_dict["use_trained_model"] \
-            if config_dict["use_trained_model"].lower() != "false" else False
-    config_dict["use_swag"] = (config_dict["uncertainty_modify"].split('_')[0] == 'swag')
-    for key in config_dict.keys():
-        if config_dict[key] == "$None":
-            config_dict[key] = None
-    return config_dict
-
-
-def init_model_test(config_dict, state_dict, ds: Dataset):
+def init_model_test(cfg: Config, state_dict, ds: Dataset):
     from Networks.PhysDimeNet import PhysDimeNet
-    args = preprocess_config(config_dict)
-    model = PhysDimeNet(cfg=args, ds=ds, **args).to(get_device())
-    model = AveragedModel(model, use_buffers=args["swa_use_buffers"])
+    model = PhysDimeNet(cfg=cfg, ds=ds).to(get_device())
+    model = AveragedModel(model, use_buffers=cfg.training.swa_use_buffers)
     if "n_averaged" not in state_dict.keys():
         model.module.load_state_dict(state_dict)
     else:
@@ -1039,7 +1012,7 @@ def fix_model_keys(state_dict):
     return tmp
 
 
-def process_state_dict(state_dict: OrderedDict, config_dict: dict, logger, is_main):
+def process_state_dict(state_dict: OrderedDict, config_dict: dict, logger, is_main=True):
     # this happens when loading checkpoints for SphereNet.
     # check https://github.com/divelab/DIG_storage/tree/main/3dgraph/qm9
     if "model_state_dict" in state_dict:
@@ -1119,19 +1092,6 @@ def validate_index(train_index: Union[List[int], torch.LongTensor], val_index, t
         test_size = None
 
     return train_size, val_size, test_size
-
-
-def lossfn_factory(cfg: dict):
-    from utils.LossFn import LossFn, MDNLossFn, MDNMixLossFn, KLDivRegressLossFn
-    if cfg["loss_metric"] == "mdn":
-        return MDNLossFn(cfg)
-    elif cfg["loss_metric"].startswith("mdn_"):
-        return MDNMixLossFn(cfg)
-    elif cfg["loss_metric"] == "kl_div":
-        return KLDivRegressLossFn(cfg)
-    w_e, w_f, w_q, w_p = 1, cfg["force_weight"], cfg["charge_weight"], cfg["dipole_weight"]
-    loss_fn = LossFn(w_e=w_e, w_f=w_f, w_q=w_q, w_p=w_p, config_dict=cfg, **cfg)
-    return loss_fn
 
 
 def mp_mean_std_calculate(ds, train_index, config, run_directory):

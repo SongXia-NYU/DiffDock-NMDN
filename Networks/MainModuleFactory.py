@@ -23,26 +23,30 @@ from Networks.comenet.ComENetAtomEmbed import ComENetAtomEmbed
 from Networks.comenet.ComENetMolProp import ComENetMolProp
 from Networks.comenet.SphereNet import SphereNetWrapped
 
+from utils.configs import Config
 from utils.utils_functions import error_message, option_solver
 
 
 class MainModuleFactory:
-    def __init__(self, config_dict: dict, expansion_info_getter: dict, base_unit_getter: dict, ds: Dataset) -> None:
+    def __init__(self, config_dict: Config, expansion_info_getter: dict, base_unit_getter: dict, ds: Dataset) -> None:
         self.previous_module = "P"
-        self.config_dict: dict = config_dict
+        self.cfg: Config = config_dict
         self.expansion_info_getter = expansion_info_getter
         self.base_unit_getter = base_unit_getter
         self.ds = ds
 
     def get_module(self, module_str: str, bonding_str: str, activation: str, n_output: int, energy_scale, energy_shift) -> Tuple[List[nn.Module], List[dict]]:
-        config_dict: dict = self.config_dict
-        n_feature, n_atom_embedding = config_dict["n_feature"], config_dict["n_atom_embedding"]
-        n_phys_atomic_res, n_phys_interaction_res, n_phys_output_res = config_dict["n_phys_atomic_res"], config_dict["n_phys_interaction_res"], config_dict["n_phys_output_res"]
-        n_dime_before_residual, n_dime_after_residual = config_dict["n_dime_before_residual"], config_dict["n_dime_after_residual"]
-        n_output_dense, n_bi_linear = config_dict["n_output_dense"], config_dict["n_bi_linear"]
-        uncertainty_modify, dropout, batch_norm = config_dict["uncertainty_modify"], config_dict["dropout"], config_dict["batch_norm"]
-        loss_metric = config_dict["loss_metric"]
-        last_lin_bias = config_dict["last_lin_bias"]
+        cfg: Config = self.cfg
+        model_cfg = cfg.model
+        n_feature, n_atom_embedding = model_cfg["n_feature"], model_cfg["n_atom_embedding"]
+        phys_cfg = cfg.model.physnet
+        n_phys_atomic_res, n_phys_interaction_res, n_phys_output_res = phys_cfg["n_phys_atomic_res"], phys_cfg["n_phys_interaction_res"], phys_cfg["n_phys_output_res"]
+        dime_cfg = cfg.model.dimenet
+        n_dime_before_residual, n_dime_after_residual = dime_cfg["n_dime_before_residual"], dime_cfg["n_dime_after_residual"]
+        n_output_dense, n_bi_linear = dime_cfg["n_output_dense"], dime_cfg["n_bi_linear"]
+        uncertainty_modify, dropout, batch_norm = model_cfg["uncertainty_modify"], model_cfg["dropout"], model_cfg["batch_norm"]
+        loss_metric = cfg.training.loss_fn["loss_metric"]
+        last_lin_bias = model_cfg["last_lin_bias"]
 
         # contents within "[]" will be considered as options
         m_args: dict = option_solver(module_str, type_conversion=True)
@@ -72,7 +76,7 @@ class MainModuleFactory:
                                     n_res_atomic=n_phys_atomic_res, n_res_interaction=n_phys_interaction_res,
                                     n_res_output=n_phys_output_res, activation=activation, uncertainty_modify=uncertainty_modify,
                                     n_read_out=m_args["n_read_out"] if "n_read_out" in m_args else 0, batch_norm=batch_norm,
-                                    dropout=dropout, zero_last_linear=(loss_metric not in ["ce", "bce"]), bias=last_lin_bias, config_dict=config_dict, module_str=module_str)
+                                    dropout=dropout, zero_last_linear=(loss_metric not in ["ce", "bce"]), bias=last_lin_bias, config_dict=cfg, module_str=module_str)
             if uncertainty_modify == "concreteDropoutModule":
                 this_layer = ConcreteDropout(this_layer, module_type="PhysNet")
             module_list.append(this_layer)
@@ -90,23 +94,23 @@ class MainModuleFactory:
                               "MDN-KANO": KanoProtMDNLayer, "MDN-COMENET": ComENetProtMDNLayer}
             mdn_cls = mdn_cls_mapper[module_str]
             mdn_layer = mdn_cls(dropout_rate=0.15, mdn_edge_name=bonding_str,
-                                n_atom_types=n_atom_embedding, cfg=config_dict, **m_args)
+                                n_atom_types=n_atom_embedding, cfg=cfg, **m_args)
             module_list.append(mdn_layer)
             module_info_list[0]["is_transition"] = True
         elif module_str in ["MDNProp", "NMDN_AuxProp"]:
             cls = {"MDNProp": MDNPropLayer, "NMDN_AuxProp": NMDN_AuxPropLayer}[module_str]
             this_layer = cls(dropout_rate=0.15, mdn_edge_name=bonding_str,
-                            n_atom_types=n_atom_embedding, config_dict=config_dict)
+                            n_atom_types=n_atom_embedding, config_dict=cfg)
             module_list.append(this_layer)
             module_info_list[0]["is_transition"] = True
         elif module_str in ["MPNNProp", "MPNNHeteroProp"]:
             cls = MPNNPairedPropLayer
             if module_str == "MPNNHeteroProp": cls = HeteroPairedPropLayer
-            this_layer = cls(config_dict, bonding_str, activation, **m_args)
+            this_layer = cls(cfg, bonding_str, activation, **m_args)
             module_list.append(this_layer)
             module_info_list[0]["is_transition"] = True
         elif module_str in ["ProtTF"]:
-            this_layer = ProtEmbedTransformLayer(config_dict=config_dict, activation=activation, **m_args)
+            this_layer = ProtEmbedTransformLayer(config_dict=cfg, activation=activation, **m_args)
             module_list.append(this_layer)
             module_info_list[0]["is_transition"] = True
         elif module_str.startswith("MTA_"):
@@ -130,20 +134,20 @@ class MainModuleFactory:
             module_info_list[0]["is_transition"] = True
         elif module_str == "KANO":
             from Networks.kano.kano4mdn import KanoAtomEmbed
-            module_list.append(KanoAtomEmbed(self.config_dict))
+            module_list.append(KanoAtomEmbed(self.cfg))
             module_info_list[0]["is_transition"] = True
         elif module_str == "KANO-Metal":
             from Networks.kano.kano4metal import Kano4Metal
-            module_list.append(Kano4Metal(self.config_dict))
+            module_list.append(Kano4Metal(self.cfg))
             module_info_list[0]["is_transition"] = True
         elif module_str == "ComENet":
-            if self.config_dict["n_output"] == 0:
-                module_list.append(ComENetAtomEmbed(self.config_dict))
+            if self.cfg["n_output"] == 0:
+                module_list.append(ComENetAtomEmbed(self.cfg))
             else:
-                module_list.append(ComENetMolProp(self.config_dict, energy_scale, energy_shift))
+                module_list.append(ComENetMolProp(self.cfg, energy_scale, energy_shift))
             module_info_list[0]["is_transition"] = True
         elif module_str == "SphereNet":
-            module_list.append(SphereNetWrapped(self.config_dict))
+            module_list.append(SphereNetWrapped(self.cfg))
             module_info_list[0]["is_transition"] = True
         elif module_str == "Comb-P-KANO":
             from Networks.kano.combind_p_kano import CombinedPKano
@@ -151,7 +155,7 @@ class MainModuleFactory:
             module_info_list[0]["is_transition"] = True
         elif module_str == "EquiformerV2":
             from Networks.SharedLayers.EquiformerV2 import EquiformerV2
-            module_list.append(EquiformerV2(config_dict))
+            module_list.append(EquiformerV2(cfg))
             module_info_list[0]["is_transition"] = True
         elif module_str == "ESMGearnet":
             from Networks.esm_gearnet.model_wrapper import ESMGearnet

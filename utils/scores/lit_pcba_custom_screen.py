@@ -17,7 +17,7 @@ class LIT_PCBA_CustomWrapper(LIT_PCBA_ScreeningWrapper):
 
     def run(self):
         assert self.diffdock
-        assert osp.basename(self.args["folder_prefix"]) == "exp_pl_422", self.args["folder_prefix"]
+        assert osp.basename(self.cfg["folder_prefix"]) == "exp_pl_422", self.cfg["folder_prefix"]
         tgt_name_strip = self.tgt_name.split("-diffdock")[0]
         DROOT = f"/LIT-PCBA/{tgt_name_strip}"
         score_csv = osp.join(self.dst_dir, "score.csv")

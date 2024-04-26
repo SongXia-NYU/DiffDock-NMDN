@@ -9,13 +9,14 @@ from chemprop_kano.features.featurization import ATOM_FDIM, BOND_FDIM, MolGraph,
 
 from chemprop_kano.models.cmpn import CMPNEncoder
 from chemprop_kano.models.model import prompt_generator_output
+from utils.configs import Config
 from utils.utils_functions import get_device, lazy_property
 
 # storing loaded KANO ds so it will not load twice.
 loaded_kano_ds: Dict[str, Dict[str, MolGraph]] = {}
 
 class KanoAtomEmbed(nn.Module):
-    def __init__(self, cfg: dict) -> None:
+    def __init__(self, cfg: Config) -> None:
         super().__init__()
 
         self.kano_args = Namespace(hidden_size=300, bias=False, depth=3, dropout=0.0, undirected=False, atom_messages=False, features_only=False,
@@ -28,18 +29,18 @@ class KanoAtomEmbed(nn.Module):
         self.load_kano_ds(cfg)
 
         # legacy behaviour
-        self.folder_prefix = cfg["folder_prefix"]
+        self.folder_prefix = cfg.folder_prefix
 
         # load model checkpoint
-        if cfg["kano_ckpt"] is not None:
-            logging.info(f"Loading KANO checkpoint from {cfg['kano_ckpt']}")
-            self.load_state_dict(torch.load(cfg["kano_ckpt"], map_location=get_device()), strict=False)
+        if cfg.model.kano.kano_ckpt is not None:
+            logging.info(f"Loading KANO checkpoint from {cfg.model.kano.kano_ckpt}")
+            self.load_state_dict(torch.load(cfg.model.kano.kano_ckpt, map_location=get_device()), strict=False)
         self.cfg = cfg
 
-    def load_kano_ds(self, cfg: dict):
+    def load_kano_ds(self, cfg: Config):
         # load KANO data from precomputed pickle file
-        kano_ds_name: str = cfg["kano_ds"]
-        ds_root: str = cfg["data_root"]
+        kano_ds_name: str = cfg.data.kano_ds
+        ds_root: str = cfg.data.data_root
         kano_ds_path: str = osp.join(ds_root, "processed", kano_ds_name)
         kano_load_stype: str = "default"
         if kano_ds_name.startswith("casf-docking."):
@@ -69,7 +70,7 @@ class KanoAtomEmbed(nn.Module):
     
     def get_mol_graphs(self, runtime_vars: dict) -> List[MolGraph]:
         molid_name: str = "pdb"
-        if self.cfg["kano_ds"].startswith(("qm9", "esol")): molid_name = "mol_id"
+        if self.cfg.data.kano_ds.startswith(("qm9", "esol")): molid_name = "mol_id"
         molid_list: List[str] = getattr(runtime_vars["data_batch"], molid_name)
         lig_files: List[List[str]] = runtime_vars["data_batch"].ligand_file
         lig_files: List[str] = [i[0] for i in lig_files]

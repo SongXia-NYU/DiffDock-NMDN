@@ -8,13 +8,15 @@ from torch_scatter import scatter_add, scatter_max
 from torch.distributions import Normal
 from torch_geometric.data import Data
 
+from utils.configs import Config
 from utils.data.data_utils import get_num_mols, infer_device
 
 
 class NMDN_Calculator:
-    def __init__(self, cfg: dict, requested_score_names: List[str] = None) -> None:
-        self.mdn_threshold_train = cfg["mdn_threshold_train"]
-        self.mdn_threshold_eval = cfg["mdn_threshold_eval"]
+    def __init__(self, cfg: Config, requested_score_names: List[str] = None) -> None:
+        mdn_cfg = cfg.model.mdn
+        self.mdn_threshold_train = mdn_cfg["mdn_threshold_train"]
+        self.mdn_threshold_eval = mdn_cfg["mdn_threshold_eval"]
 
         self.requested_score_names: Set[str] = requested_score_names
 

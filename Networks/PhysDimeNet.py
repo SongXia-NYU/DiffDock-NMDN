@@ -17,6 +17,7 @@ from Networks.SharedLayers.EmbeddingLayer import EmbeddingLayer
 from Networks.SharedLayers.MyMemPooling import MyMemPooling
 from utils.BesselCalculator import bessel_expansion_raw
 from utils.BesselCalculatorFast import BesselCalculator
+from utils.configs import Config, ModelConfig
 from utils.data.data_utils import get_lig_natom, get_lig_z, get_lig_batch, get_lig_coords
 from utils.tags import tags
 from torch_geometric.data import Dataset, Batch, HeteroData
@@ -27,65 +28,46 @@ from utils.utils_functions import floating_type, dime_edge_expansion, softplus_i
 
 class PhysDimeNet(nn.Module):
 
-    def __init__(self, cfg: dict, energy_shift=None, energy_scale=None, ext_atom_dim=0, ds: Dataset=None, **kwargs):
+    def __init__(self, cfg: Config, energy_shift=None, energy_scale=None, ds: Dataset=None, **kwargs):
         super().__init__()
-        self.cfg: dict = cfg
+        self.cfg: Config = cfg
+        self.model_cfg: ModelConfig = cfg.model
         self.logger = logging.getLogger()
 
-        # ----------- Regularizations ----------- #
-        self.nhlambda: float = cfg["nh_lambda"]
-        self.restrain_non_bond_pred: bool = cfg["restrain_non_bond_pred"]
-        self.uni_task_ss: bool = cfg["uni_task_ss"]
-
         # ----------- Normalizations ----------- #
-        self.normalize: bool = cfg["normalize"]
-        self.shared_normalize_param: bool = cfg["shared_normalize_param"]
+        self.normalize: bool = self.model_cfg.normalization["normalize"]
 
         # ----------- Misc ----------- #
-        self.coulomb_charge_correct: bool = cfg["coulomb_charge_correct"]
-        self.lin_last: bool = cfg["lin_last"]
-        if cfg["z_loss_weight"] > 0:
-            assert cfg["mask_z"], "If you want to predict Z (atomic number), please mask Z in input"
-        self.mask_z = cfg["mask_z"]
-        self.z_loss_weight = cfg["z_loss_weight"]
-        self.time_debug: bool = cfg["time_debug"]
-        self.ligand_only: bool = cfg["ligand_only"]
-        self.use_acsf: bool = (cfg["acsf"] is not None)
-        if self.use_acsf:
-            self.acsf_convert: nn.Module = nn.Linear(cfg["acsf"], cfg["n_feature"])
-        self.debug_mode: bool = cfg["debug_mode"]
+        self.coulomb_charge_correct: bool = self.model_cfg["coulomb_charge_correct"]
+        self.debug_mode: bool = self.cfg["debug_mode"]
         self.requires_atom_prop: bool = False
-        self.action: str = cfg["action"]
-        if self.action in tags.requires_atomic_prop or cfg["w_cross_mdn_pkd"] > 0.:
+        self.action: str = self.cfg.training.loss_fn.action
+        if self.action in tags.requires_atomic_prop:
             self.logger.info("Overwriting self.requires_atom_prop = True because you require atomic props")
             self.requires_atom_prop = True
-        self.requires_atom_embedding = cfg["requires_atom_embedding"]
-        self.ext_atom_features: str = cfg["ext_atom_features"]
-        self.ext_atom_dim: int = ext_atom_dim
-        self.trioMPW: bool = cfg["trioMPW"]
-        self.cross_mdn_prop_name: str = cfg["cross_mdn_prop_name"]
+        self.requires_atom_embedding = self.model_cfg["requires_atom_embedding"]
 
         self.MDN_MODULE_NAMES = ["MDN", "MDN-PP", "MDN-PP-intra", "MDN-KANO", "MDN-COMENET", "MDN-SingleProt"]
 
-        if cfg["n_output"] == 0:
+        if self.model_cfg["n_output"] == 0:
             # Here we setup a fake n_output to avoid errors in initialization
             # But the sum pooling result will not be used
             self.no_sum_output = True
             self.n_output = 1
         else:
             self.no_sum_output = False
-            self.n_output = cfg["n_output"]
+            self.n_output = self.model_cfg["n_output"]
 
         print("------unused keys in model-----")
         for key in kwargs:
             print("{}={}".format(key, kwargs[key]))
         print(">>>>>>>>unused keys in model<<<<<<<<<<")
 
-        self.expansion_fn: Dict[str, str] = expansion_splitter(cfg["expansion_fn"])
+        self.expansion_fn: Dict[str, str] = expansion_splitter(self.model_cfg["expansion_fn"])
 
-        self.activations: List[str] = cfg["activations"].split(" ")
-        module_str_list: List[str] = cfg["modules"].split()
-        bonding_str_list: List[str] = cfg["bonding_type"].split()
+        self.activations: List[str] = self.model_cfg["activations"].split(" ")
+        module_str_list: List[str] = self.model_cfg["modules"].split()
+        bonding_str_list: List[str] = self.model_cfg["bonding_type"].split()
         self.use_mdn: bool = ("MDN" in module_str_list)
         
         # ------------------------------------------------------------------------------------------------------------------#
@@ -139,26 +121,22 @@ class PhysDimeNet(nn.Module):
 
         self.dist_calculator = nn.PairwiseDistance(keepdim=True)
 
-        self.embedding_layer = EmbeddingLayer(cfg["n_atom_embedding"], cfg["n_feature"] - self.ext_atom_dim)
+        self.embedding_layer = EmbeddingLayer(self.model_cfg["n_atom_embedding"], self.model_cfg["n_feature"])
         
-        self.register_main_modules(module_str_list, bonding_str_list, cfg, ds, energy_scale, energy_shift)
+        self.register_main_modules(module_str_list, bonding_str_list, self.cfg, ds, energy_scale, energy_shift)
 
         self.register_post_modules()
 
         self.register_norm_params(energy_shift, energy_scale)
 
-        pool_base, pool_options = option_solver(cfg["pooling"], type_conversion=True, return_base=True)
+        pool_base, pool_options = option_solver(self.model_cfg["pooling"], type_conversion=True, return_base=True)
         if pool_base == "sum":
             self.pooling_module = None
         elif pool_base == "mem_pooling":
-            self.pooling_module = MyMemPooling(in_channels=cfg["n_feature"], **pool_options)
+            self.pooling_module = MyMemPooling(in_channels=self.model_cfg["n_feature"], **pool_options)
         else:
             raise ValueError(f"invalid pool_base: {pool_base}")
 
-        if self.lin_last:
-            # extra safety
-            assert self.requires_atom_embedding
-            assert isinstance(self.main_module_list[-1], PhysModule)
         self.runtime_vars_checked: bool = False
 
     def register_main_modules(self, module_str_list, bonding_str_list, config_dict, ds, energy_scale, energy_shift):
@@ -210,7 +188,7 @@ class PhysDimeNet(nn.Module):
                     scale_matrix[:, 0] = energy_scale
             shift_matrix = shift_matrix / len(self.bonding_type_keys)
             self.register_parameter('scale', torch.nn.Parameter(scale_matrix, requires_grad=True))
-            self.register_parameter('shift', torch.nn.Parameter(shift_matrix, requires_grad=self.cfg["train_shift"]))
+            self.register_parameter('shift', torch.nn.Parameter(shift_matrix, requires_grad=self.model_cfg.normalization["train_shift"]))
         else:
             for key in self.bonding_type_keys:
                 shift_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type)
@@ -281,31 +259,19 @@ class PhysDimeNet(nn.Module):
         atom_mol_batch = get_lig_batch(data)
         
         edge_index_getter, edge_type_getter = self.gather_edge_info(data)
-        if self.time_debug:
-            t0 = record_data("bond_setup", t0)
 
         msg_edge_index_getter = self.gather_msg_edge_info(data, edge_index_getter)
-        if self.time_debug:
-            t0 = record_data("msg_bond_setup", t0)
 
         expansions = self.gather_expansion_info(data, edge_index_getter, msg_edge_index_getter)
-        if self.time_debug:
-            t0 = record_data("expansion_prepare", t0)
 
         # runtime_vars stores runtime embeddings as well as auxilliary variables that is used by modules
         # it is updated by the modules every run. 
         runtime_vars: dict = self.gather_init_embeddings(data)
-        if self.time_debug:
-            t0 = record_data("embedding_prepare", t0)
 
         output, runtime_vars, pred_last_by_bond, pred_sum_by_bond, nh_loss = \
             self.run_main_modules(runtime_vars, edge_index_getter, msg_edge_index_getter, expansions, edge_type_getter)
-        if self.time_debug:
-            t0 = record_data("main_modules", t0)
 
         pred_sum_by_bond = self.atom_lvl_norm(pred_sum_by_bond, data)
-        if self.time_debug:
-            t0 = record_data("normalization", t0)
 
         # predicted property at atomic level
         atom_prop = 0.
@@ -313,21 +279,7 @@ class PhysDimeNet(nn.Module):
             atom_prop = atom_prop + pred_sum_by_bond[key]
 
         atom_prop = self.run_post_modules(data, edge_index_getter, expansions, atom_prop)
-        if self.time_debug:
-            t0 = record_data("post_modules", t0)
-
-        if self.restrain_non_bond_pred and ('N' in self.bonding_type_keys):
-            # Bonding energy should be larger than non-bonding energy
-            atom_prop2 = atom_prop ** 2
-            non_bond_prop2 = pred_sum_by_bond['N'] ** 2
-            nh_loss = nh_loss + torch.mean(non_bond_prop2 / (atom_prop2 + 1e-7)) * self.nhlambda
         output["nh_loss"] = nh_loss
-
-        # only sum over ligand atoms
-        # 0: protein; 1: ligand
-        if self.ligand_only:
-            atom_prop = torch.where(data.mol_type.view(-1, 1) == 1, atom_prop,
-                                    torch.as_tensor([0.]).type(floating_type).to(get_device()))
         
         if isinstance(atom_prop, torch.Tensor):
             # Total prediction is the summation of bond and non-bond prediction
@@ -348,7 +300,7 @@ class PhysDimeNet(nn.Module):
             output["atom_prop"] = atom_prop
             output["atom_mol_batch"] = atom_mol_batch
 
-        for prop_name in [self.cross_mdn_prop_name, "pair_atom_prop"]:
+        for prop_name in ["pair_atom_prop"]:
             if prop_name in runtime_vars:
                 output[prop_name] = runtime_vars[prop_name]
 
@@ -359,8 +311,6 @@ class PhysDimeNet(nn.Module):
             self.check_runtime_vars(runtime_vars, atom_prop)
             self.runtime_vars_checked = True
         output = self.record_mol_prop(data, output, mol_prop, runtime_vars)
-        if self.time_debug:
-            t0 = record_data("scatter_pool_others", t0)
 
         return output
     
@@ -368,12 +318,10 @@ class PhysDimeNet(nn.Module):
         """
         Atom-level scale and shift for regression tasks
         """
-        if self.lin_last or not self.normalize:
+        if not self.normalize:
             return pred_sum_by_bond
 
         Z = get_lig_z(data_batch)
-        if self.mask_z:
-            Z = torch.zeros_like(Z)
 
         if self.shared_normalize_param:
             for key in self.bonding_type_keys:
@@ -408,8 +356,6 @@ class PhysDimeNet(nn.Module):
             if not info["is_transition"]:
                 runtime_vars["edge_index"] = edge_index_getter[info["bonding_str"]]
                 runtime_vars["edge_attr"] = expansions[info["combine_str"]]
-                if self.trioMPW:
-                    runtime_vars["edge_type"] = edge_type_getter[info["bonding_str"]]
             # grab edge-edge edges (edge-level edges) for DimeNet
             if info["module_str"].split("-")[0] == "D":
                 runtime_vars["msg_edge_index"] = msg_edge_index_getter[info["bonding_str"]]
@@ -420,13 +366,8 @@ class PhysDimeNet(nn.Module):
             runtime_vars["edge_index"] = None
             runtime_vars["edge_attr"] = None
 
-            # first layer embedding will be used to predict atomic number (Z)
-            if self.z_loss_weight > 0 and i == 0:
-                output["first_layer_vi"] = runtime_vars["vi"]
-
             # due to some bugs in previous code, I added "legacy_exps" for reproducibility of legacy experiments
-            if (info["is_transition"] or info["module_str"].split("-")[-1] == 'noOut') and \
-                    not self.cfg["legacy_exps"]:
+            if (info["is_transition"] or info["module_str"].split("-")[-1] == 'noOut'):
                 continue
 
             # calculate non-hierachical loss
@@ -452,17 +393,9 @@ class PhysDimeNet(nn.Module):
         vi:  node mol_lvl_detail
         '''
         Z = get_lig_z(data_batch)
-        if self.mask_z:
-            Z = torch.zeros_like(Z)
-        if self.use_acsf:
-            vi_init = data_batch.acsf_features.type(floating_type)
-            vi_init = self.acsf_convert(vi_init)
-        else:
-            vi_init = self.embedding_layer(Z)
-            if self.ext_atom_features is not None:
-                vi_init = torch.cat([vi_init, getattr(data_batch, self.ext_atom_features)], dim=-1)
+        vi_init = self.embedding_layer(Z)
         runtime_vars = {"vi": vi_init, "mji": mji, "data_batch": data_batch}
-        if self.cfg["prot_embedding_root"] is not None:
+        if self.cfg.data.pre_computed["prot_embedding_root"] is not None:
             runtime_vars["prot_embed"] = data_batch.prot_embed
             runtime_vars["prot_embed_chain1"] = getattr(data_batch, "prot_embed_chain1", None)
             runtime_vars["prot_embed_chain2"] = getattr(data_batch, "prot_embed_chain2", None)
@@ -511,12 +444,6 @@ class PhysDimeNet(nn.Module):
                 edge_index_getter[bonding_str] = edge_index
             else:
                 edge_indices = [data_batch[t + '_edge_index'] for t in bonding_str.split("+")]
-                if self.trioMPW:
-                    this_edge_types = []
-                    for this_edge_index, edge_name in zip(edge_indices, bonding_str.split("+")):
-                        this_edge_type = torch.zeros_like(this_edge_index[[0], :]).fill_(pl_type_mapper[edge_name]).type(floating_type)
-                        this_edge_types.append(this_edge_type)
-                    edge_type_getter[bonding_str] = torch.cat(this_edge_types, dim=-1).view(-1, 1)
                 edge_index_getter[bonding_str] = torch.cat(edge_indices, dim=-1)
             if bonding_str == "PROTEIN_Voronoi1":
                 edge_index_getter[bonding_str] = edge_index_getter[bonding_str].long()
@@ -541,8 +468,6 @@ class PhysDimeNet(nn.Module):
         Post modules: Coulomb or D3 Dispersion layers
         '''
         Z = get_lig_z(data_batch)
-        if self.mask_z:
-            Z = torch.zeros_like(Z)
         for i, (module_str, bonding_str) in enumerate(zip(self.post_module_str, self.post_bonding_str)):
             this_edge_index = edge_index_getter[bonding_str]
             this_expansion = expansions["{}_{}".format(module_str, bonding_str)]
@@ -646,8 +571,6 @@ class PhysDimeNet(nn.Module):
     def infuse_atom_embed(self, data_batch, output, runtime_embed_dynamic):
         if self.normalize:
             Z = get_lig_z(data_batch)
-            if self.mask_z:
-                Z = torch.zeros_like(Z)
             dim_ss = self.scale.shape[-1]
             output["atom_embedding"] = torch.cat([runtime_embed_dynamic["embed_b4_ss"] * self.scale[Z, i].reshape(-1, 1)
                                                     for i in range(dim_ss)], dim=-1)
@@ -687,9 +610,7 @@ class PhysDimeNet(nn.Module):
                 output["mol_prop"] = runtime_vars[key]
                 return output
 
-        if self.lin_last:
-            raise ValueError("lin_last is no longer used.")
-        elif self.no_sum_output:
+        if self.no_sum_output:
             output["mol_prop"] = torch.Tensor(torch.Size([mol_prop.shape[0], 0])).to(mol_prop.device)
         else:
             output["mol_prop"] = mol_prop

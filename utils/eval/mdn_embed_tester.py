@@ -65,7 +65,7 @@ class MDNEmbedTester(Tester):
     def test_on_ds(self, ds_name: str):
         with open(osp.join(self.ds_root, ds_name), "rb") as f:
             ds = CPU_Unpickler(f).load()
-        x_feats = ds[f"{self.args['mdn_embed_type']}_embed"]
+        x_feats = ds[f"{self.cfg['mdn_embed_type']}_embed"]
         x_feats = np.concatenate([t.numpy().reshape(1, -1) for t in x_feats], axis=0)
         x_feats_scaled = self.scaler.transform(x_feats)
         y_pred = self.model.predict(x_feats_scaled)
@@ -96,6 +96,6 @@ class MDNEmbedTester(Tester):
     def ds_root(self):
         if self._ds_root is not None:
             return self._ds_root
-        ds_args = self.args if self.explicit_ds_args is None else self.explicit_ds_args
+        ds_args = self.cfg if self.explicit_ds_args is None else self.explicit_ds_args
         self._ds_root = osp.join(ds_args["data_root"], "processed")
         return self._ds_root

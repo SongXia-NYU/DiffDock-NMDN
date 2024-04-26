@@ -5,6 +5,7 @@ from torch_geometric.data import Batch, Data
 from Networks.PairedPropLayers.MDNLayer import MDNLayer, get_prot_dim
 import torch.nn.functional as F
 
+from utils.configs import Config
 from utils.data.data_utils import get_lig_batch
 
 
@@ -56,8 +57,6 @@ class GeneralMDNLayer(MDNLayer):
         out = {"pi": pi, "sigma": sigma, "mu": mu, "dist": dist,
                "C_batch": pair_batch, "pl_edge_index_used": edge_index}
 
-        out = self.update_pair_prop(out, pi, sigma, mu, dist)
-
         assert not self.prot_atom_types
         if self.lig_atom_types:
             lig_atom_types = self.lig_atom_types_layer(h_1)
@@ -81,7 +80,7 @@ class ProtProtMDNLayer(GeneralMDNLayer):
     def __init__(self, **kwargs) -> None:
         super().__init__("prot_embed_chain1", "prot_embed_chain2", **kwargs)
     def overwrite_lig_dim(self) -> Optional[int]:
-        return get_prot_dim(self.config_dict)
+        return get_prot_dim(self.cfg)
     
 class KanoProtMDNLayer(GeneralMDNLayer):
     def __init__(self, **kwargs) -> None:
@@ -110,7 +109,7 @@ class MetalLigMDNLayer(GeneralMDNLayer):
         # since ion is encoded by KANO-Metal, the dimension is 300
         return 300
     
-    def gather_hidden_dim(self, cfg: dict):
-        if cfg["n_mdn_lig_metal_hidden"] is not None:
-            return cfg["n_mdn_lig_metal_hidden"]
+    def gather_hidden_dim(self, cfg: Config):
+        if cfg.model.mdn["n_mdn_lig_metal_hidden"] is not None:
+            return cfg.model.mdn["n_mdn_lig_metal_hidden"]
         return super().gather_hidden_dim(cfg)

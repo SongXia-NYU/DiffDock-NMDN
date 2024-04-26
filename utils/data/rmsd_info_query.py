@@ -2,18 +2,21 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from glob import glob
+from utils.configs import Config
 from utils.utils_functions import lazy_property
 
 
 class RMSD_Query:
     # Query pre-computed RMSD information 
     # The pre-computed RMSD is used as one of the feature to predict pKd.
-    def __init__(self, cfg: dict) -> None:
-        self.rmsd_csv: str = cfg["rmsd_csv"]
+    def __init__(self, cfg: Config) -> None:
+        self.rmsd_csv: str = cfg.data.pre_computed["rmsd_csv"]
         # count the stats
         self.query_count: int = 0
         self.missing_count: int = 0
-        self.lig_identifier_dst: str = cfg["lig_identifier_dst"]
+        self.lig_identifier_dst: str = cfg.data.pre_computed["lig_identifier_dst"]
+        if "casf.docking.rmsd.csv" in self.rmsd_csv:
+            self.lig_identifier_dst = "pdb"
 
     def query_rmsd(self, query: str) -> float:
         # more efficient query
@@ -23,17 +26,18 @@ class RMSD_Query:
             rank = int(rank)
             query = (file_handle, rank)
         self.query_count += 1
-        try:
-            rmsd_info = self.rmsd_df.loc[query, "rmsd"]
-            if isinstance(rmsd_info, pd.Series):
-                rmsd_info = rmsd_info.item()
-            return rmsd_info
-        except KeyError:
-            self.missing_count += 1
-        except ValueError:
+        if query in self.rmsd_df.index:
+            try:
+                rmsd_info = self.rmsd_df.loc[query, "rmsd"]
+                if isinstance(rmsd_info, pd.Series):
+                    rmsd_info = rmsd_info.item()
+                return rmsd_info
+            except ValueError:
+                self.missing_count += 1
+        else:
             self.missing_count += 1
         # if too many ligands are missing RMSD values, something went wrong
-        if self.query_count >= 10_000:
+        if self.query_count >= 1_000:
             missing_percent: float = 1.0 * self.missing_count / self.query_count
             assert missing_percent < 0.2, "Too many missing RMSDs: {:.1f}%".format(100*missing_percent)
         return self.median_rmsd

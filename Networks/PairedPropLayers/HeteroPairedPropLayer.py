@@ -5,25 +5,26 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Batch, HeteroData
 from Networks.PairedPropLayers.PairedPropLayer import MPNNPairedPropLayer
+from utils.configs import Config
 from utils.data.data_utils import get_lig_batch
 from utils.utils_functions import get_device
 
 
 class HeteroPairedPropLayer(nn.Module):
-    def __init__(self, cfg: dict, edge_name: str, activation: str, style="add") -> None:
+    def __init__(self, cfg: Config, edge_name: str, activation: str, style="add") -> None:
         super().__init__()
         self.lig_prot_layer = MPNNPairedPropLayer(cfg, edge_name, activation, style)
 
         # registering ligand-metal layer
-        lig_metal_cls = PrecumputedMetalLigandPairedPropLayer if cfg["metal_atom_embed_path"] is not None else MetalLigandPairedPropLayer
-        lig_metal_cfg: dict = deepcopy(cfg)
+        lig_metal_cls = PrecumputedMetalLigandPairedPropLayer if cfg.model.mdn.metal_atom_embed_path is not None else MetalLigandPairedPropLayer
+        lig_metal_cfg: Config = deepcopy(cfg)
         # disable RMSD and physical terms
-        lig_metal_cfg["pkd_phys_terms"] = None
-        lig_metal_cfg["rmsd_csv"] = None
-        lig_metal_cfg["rmsd_expansion"] = None
+        lig_metal_cfg.model.mdn["pkd_phys_terms"] = None
+        lig_metal_cfg.data.pre_computed["rmsd_csv"] = None
+        lig_metal_cfg.data.pre_computed["rmsd_expansion"] = None
         self.lig_metal_layer = lig_metal_cls(lig_metal_cfg, edge_name, activation, style)
 
-        self.w_lig_metal: float = cfg["w_lig_metal"]
+        self.w_lig_metal: float = cfg.model.mdn.w_lig_metal
 
         # It is used during testing: disable this layer to only predict NMDN score
         self.no_pkd_score: bool = self.lig_prot_layer.no_pkd_score

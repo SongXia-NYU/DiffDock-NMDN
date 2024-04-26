@@ -77,20 +77,6 @@ class MessagePassingLayer(torch_geometric.nn.MessagePassing):
         self.lin_for_diff.weight.data = semi_orthogonal_glorot_weights(F, F)
         self.lin_for_diff.bias.data.zero_()
 
-        self.trioMPW = self.config_dict["trioMPW"]
-
-        if self.trioMPW:
-            linPL = nn.Linear(F, F)
-            linPP = nn.Linear(F, F)
-            for layer in [linPL, linPP]:
-                layer.bias.data.zero_()
-                if self.config_dict["trioMPW_zeroW"]:
-                    layer.weight.data.zero_()
-                else:
-                    layer.weight.data = semi_orthogonal_glorot_weights(F, F)
-            self.add_module("linPL", linPL)
-            self.add_module("linPP", linPP)
-
         if self.batch_norm:
             self.bn_same = nn.BatchNorm1d(F, momentum=1.)
             self.bn_diff = nn.BatchNorm1d(F, momentum=1.)
@@ -104,15 +90,7 @@ class MessagePassingLayer(torch_geometric.nn.MessagePassing):
     def message(self, x_j, edge_attr):
         if self.batch_norm:
             x_j = self.bn_diff(x_j)
-        if self.trioMPW:
-            edge_type = edge_attr[:, [-1]].long()
-            edge_attr = edge_attr[:, :-1]
-            msg_pp = torch.where(edge_type==0, self.linPP(x_j), 0.)
-            msg_pl = torch.where(edge_type==1, self.linPL(x_j), 0.)
-            msg_ll = torch.where(edge_type==2, self.lin_for_diff(x_j), 0.)
-            msg = msg_pp + msg_pl + msg_ll
-        else:
-            msg = self.lin_for_diff(x_j)
+        msg = self.lin_for_diff(x_j)
         msg = self.activation(msg)
         masked_edge_attr = self.G(edge_attr)
         msg = torch.mul(msg, masked_edge_attr)
@@ -122,9 +100,6 @@ class MessagePassingLayer(torch_geometric.nn.MessagePassing):
         x = input_dict[self.embed_name]
         edge_index = input_dict["edge_index"]
         edge_attr = input_dict["edge_attr"]["rbf"]
-        
-        if self.trioMPW:
-            edge_attr = torch.cat([edge_attr, input_dict["edge_type"]], dim=-1)
 
         x = self.activation(x)
         return self.propagate(edge_index, x=x, edge_attr=edge_attr)
@@ -185,8 +160,6 @@ class PLMessagePassingLayer(HeteroMessagePassingLayer):
         # flow is "target_to_source" because we want information to flow from protein to ligand
         super().__init__(F, prot_dim, K, activation, aggr, batch_norm, config_dict, 
                          embed_name, "prot_embed", flow="target_to_source")
-        # history 
-        assert not self.trioMPW
 
 
 class PMMessagePassingLayer(HeteroMessagePassingLayer):

@@ -53,13 +53,13 @@ class ProtPepTestSubmitter(SequentialJobSubmitter):
         self.rundir = rundir
 
         self.folder_reader = TrainedFolder(rundir)
-        __, self.ds_args = data_provider_solver(self.folder_reader.args, {})
+        __, self.ds_args = data_provider_solver(self.folder_reader.cfg, {})
 
     def generate_jobs(self) -> list:
         info = {}
         ds_name = self.ds_args["test_name"]
         info["test_ds_config"] = f"configs/test_set_{ds_name}.txt"
-        info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
+        info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         info["test_folder"] = self.rundir
         test_gpu_job = osp.join(self.rundir, f"SUBMIT_TEST_{ds_name}.sbatch")
         test_tmpl = "bash_scripts/TMPL_subjob-ppep-testing.sbatch"

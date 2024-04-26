@@ -162,14 +162,14 @@ class TestJobSubmitter(TemplateJobSubmitter):
     def info4tmpl(self):
         info = {}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_line(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
-        info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
+        info["ds_overlay"] = self.overlay_line(self.folder_reader.cfg["data_root"], self.folder_reader.cfg["add_sqf"])
+        info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         return info
 
     @property
     def out_job_file(self):
         if self._out_job_file is None:
-            self._out_job_file = f"SUBMIT_TEST-{osp.basename(self.folder_reader.args['folder_prefix'])}.sbatch"
+            self._out_job_file = f"SUBMIT_TEST-{osp.basename(self.folder_reader.cfg['folder_prefix'])}.sbatch"
         return self._out_job_file
 
     @lazy_property
@@ -180,7 +180,7 @@ class TestJobSubmitter(TemplateJobSubmitter):
     @property
     def ds_args(self):
         if self._ds_args is None:
-            __, self._ds_args = data_provider_solver(self.folder_reader.args, {})
+            __, self._ds_args = data_provider_solver(self.folder_reader.cfg, {})
         return self._ds_args
 
     @property

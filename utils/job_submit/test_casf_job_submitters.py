@@ -17,7 +17,7 @@ class CASF_JobSubmitter(TestJobSubmitter):
         job_str_list = [SPLIT_STR+s for s in self.sbatch_str.split(SPLIT_STR)[1:]]
         assert len(job_str_list) == 2, job_str_list
 
-        job_name = f"{osp.basename(self.folder_reader.args['folder_prefix'])}"
+        job_name = f"{osp.basename(self.folder_reader.cfg['folder_prefix'])}"
         if self.ref:
             job_name += "-ref"
         model_job_sbatch: str = osp.join(self.run_dir, self.model_job_tmpl.format(job_name=job_name))
@@ -79,8 +79,8 @@ class CASF_JobSubmitter(TestJobSubmitter):
                 "overlay_docking": overlay_docking.replace("$", "\$"), "overlay_screening": overlay_screening.replace("$", "\$"),
                 "docking_config": docking_config, "screening_config": screening_config, "casf_extra": casf_extra}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_line(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
-        info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
+        info["ds_overlay"] = self.overlay_line(self.folder_reader.cfg["data_root"], self.folder_reader.cfg["add_sqf"])
+        info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         return info
     
     @lazy_property
@@ -111,7 +111,7 @@ class CASF_BlindDockJobSubmitter(CASF_JobSubmitter):
         info["screening_config"] = screening_config
         info["docking_extra"] = ""
         info["screening_extra"] = ""
-        if self.folder_reader.args["diffdock_nmdn_result"] is not None:
+        if self.folder_reader.cfg["diffdock_nmdn_result"] is not None:
             info["docking_extra"] = "--diffdock_nmdn_result /scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-docking_2024-03-31_174131 "
             info["screening_extra"] = "--diffdock_nmdn_result /scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-screening_2024-03-27_005509"
         # info["casf_extra"] += f"--docking_config {docking_config}"

@@ -165,7 +165,7 @@ class DatasetVisualizer:
     def ds(self):
         if self._ds is None:
             if self.ds_name is not None:
-                self._ds = DummyIMDataset(data_root=self.data_root, dataset_name=self.ds_name, config_args=None)
+                self._ds = DummyIMDataset(data_root=self.data_root, dataset_name=self.ds_name, cfg=None)
             else:
                 self._ds = LargeDataset(data_root=self.data_root, file_locator=self.locator)
         return self._ds

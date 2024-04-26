@@ -32,8 +32,8 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
     def info4tmpl(self):
         info = {}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_line(self.folder_reader.args["data_root"], self.folder_reader.args["add_sqf"])
-        info["job_name"] = osp.basename(self.folder_reader.args["folder_prefix"])
+        info["ds_overlay"] = self.overlay_line(self.folder_reader.cfg["data_root"], self.folder_reader.cfg["add_sqf"])
+        info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         if self.target != "All":
             ds_name = self.ds_args["test_name"]
             tgt_str = self.target.lower()
@@ -83,7 +83,7 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
         return self._sbatch_str
 
     def run(self):
-        name = osp.basename(self.folder_reader.args['folder_prefix'])
+        name = osp.basename(self.folder_reader.cfg['folder_prefix'])
         file_handle = f"{self.target}-{name}"
         job_fn = f"SUBMIT_GPU_LIT-PCBA-{file_handle}.sbatch"
         job_score_fn = f"SUBMIT_CPU_LIT-PCBA-SCREEN-{self.target}-{name}.sbatch"

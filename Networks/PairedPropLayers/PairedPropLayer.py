@@ -10,6 +10,7 @@ from Networks.SharedLayers.ActivationFns import activation_getter
 from Networks.PairedPropLayers.MDNLayer import MDNLayer, GaussExpandLayer, get_prot_dim
 from utils.DataPrepareUtils import pairwise_dist
 from utils.LossFn import calculate_probablity
+from utils.configs import Config
 from utils.data.MyData import MyData
 from utils.data.MolFileDataset import SDFDataset
 from utils.data.data_utils import get_lig_batch, get_lig_coords, get_num_mols, infer_device, infer_type
@@ -23,27 +24,24 @@ class MDNPropLayer(MDNLayer, GaussExpandLayer):
     """
     Predict pairwise property using MDN-like MLP layer.
     """
-    def __init__(self, mdn_edge_name, config_dict, dropout_rate=0.15, n_atom_types=95, martini2aa_pooling=False) -> None:
-        MDNLayer.__init__(self, mdn_edge_name, config_dict, dropout_rate, n_atom_types, martini2aa_pooling)
-        GaussExpandLayer.__init__(self, config_dict)
-        # currently only implemented for external protein embeddings
-        assert not self.martini2aa_pooling
-        assert self.ext_prot_embed
+    def __init__(self, mdn_edge_name, cfg: Config, dropout_rate=0.15, n_atom_types=95, martini2aa_pooling=False) -> None:
+        MDNLayer.__init__(self, mdn_edge_name, cfg, dropout_rate, n_atom_types, martini2aa_pooling)
+        GaussExpandLayer.__init__(self, cfg)
 
         # not needed
         del self.z_pi, self.z_mu, self.z_sigma
 
         # cutoff = config_dict["mdn_threshold_prop"]
         # cutoff = None if cutoff == "None" else float(cutoff)
-        self.cutoff_needed = config_dict["mdn_threshold_prop"]
+        self.cutoff_needed = cfg["mdn_threshold_prop"]
 
-        self.dist_coe_calculator = DistCoeCalculator(config_dict["pair_prop_dist_coe"])
+        self.dist_coe_calculator = DistCoeCalculator(cfg.model.mdn.pair_prop_dist_coe)
         out_dim = self.dist_coe_calculator.coe_dim
         # KL divergence loss inspired by Jocelyn's T5Prop model
-        if config_dict["loss_metric"] == "kl_div":
-            out_dim = 2 * len(config_dict["target_names"])
+        if cfg["loss_metric"] == "kl_div":
+            out_dim = 2 * len(cfg["target_names"])
         # readout layer dimension depends on if we have MLP layer or not
-        if self.config_dict["n_mdnprop_layers"] == 0:
+        if self.cfg["n_mdnprop_layers"] == 0:
             in_dim: int = self.lig_dim + self.prot_dim + self.n_rbf
             self.readout = nn.Linear(in_dim, out_dim)
         else:
@@ -79,7 +77,7 @@ class MDNPropLayer(MDNLayer, GaussExpandLayer):
         return cfg["n_mdnprop_hidden"]
     
     def register_mlp_layer(self):
-        n_mdnprop_layers = self.config_dict["n_mdnprop_layers"]
+        n_mdnprop_layers = self.cfg["n_mdnprop_layers"]
         if n_mdnprop_layers == 0:
             self.MLP = nn.Identity()
             return
@@ -95,15 +93,14 @@ class MPNNPairedPropLayer(GaussExpandLayer):
     Predict pairwise property in a Message Passing Neural Network-like fashion.
     "It is just MPNN with extra steps." 
     """
-    def __init__(self, config_dict: dict, edge_name: str, activation: str, style="add") -> None:
-        super().__init__(config_dict)
-        lig_dim = config_dict["n_feature"]
+    def __init__(self, cfg: Config, edge_name: str, activation: str, style="add") -> None:
+        super().__init__(cfg)
+        lig_dim = cfg.model.n_feature
 
-        self.cutoff_needed = config_dict["mdn_threshold_prop"]
-        self.pair_atom_prop_needed = (config_dict["w_cross_mdn_pkd"] > 0.)
+        self.cutoff_needed = cfg.model.mdn.mdn_threshold_prop
         self.style = style
         self.edge_name = edge_name
-        prop_dim = self.get_prot_dim(config_dict)
+        prop_dim = self.get_prot_dim(cfg)
 
         if style == "concat":
             self.G = nn.Linear(self.n_rbf, prop_dim, bias=False)
@@ -123,60 +120,54 @@ class MPNNPairedPropLayer(GaussExpandLayer):
                                         nn.Linear(lig_dim, lig_dim), 
                                         activation_getter(activation))
 
-        self.dist_coe_calculator = DistCoeCalculator(config_dict["pair_prop_dist_coe"])
+        self.dist_coe_calculator = DistCoeCalculator(cfg.model.mdn.pair_prop_dist_coe)
         out_dim = self.dist_coe_calculator.coe_dim
-        # KL divergence loss inspired by Jocelyn's T5Prop model
-        if config_dict["loss_metric"] == "kl_div":
-            # Disabled on 11/6/2023
-            raise NotImplementedError
-            out_dim = 2 * len(config_dict["target_names"])
+
         # The RMSD of ligands after MMFF optimization. Used as a feature to predict pKd.
-        self.infuse_rmsd_info: bool = (config_dict["rmsd_csv"] is not None)
+        self.infuse_rmsd_info: bool = (cfg.data.pre_computed["rmsd_csv"] is not None)
         if self.infuse_rmsd_info:
             self.readout_dim += 1
-        if config_dict["rmsd_expansion"] is not None:
-            self.rmsd_rbf_expansion: GaussExpandLayer = GaussExpandLayer(config_dict, config_dict["rmsd_expansion"])
+        if cfg.data.pre_computed["rmsd_expansion"] is not None:
+            self.rmsd_rbf_expansion: GaussExpandLayer = GaussExpandLayer(cfg, cfg.data.pre_computed["rmsd_expansion"])
             self.readout_dim += (self.rmsd_rbf_expansion.n_rbf - 1)
-        # use external embedding for proteins. For example, ESM embeddings
-        self.ext_prot_embed: bool = (config_dict["prot_embedding_root"] is not None) or \
-            ("ESMGearnet" in config_dict["modules"].split())
         # add physical terms to the final prediction
-        self.pkd_phys_norm: float = config_dict["pkd_phys_norm"]
-        self.pkd_phys_concat: bool = config_dict["pkd_phys_concat"]
-        self.register_pkd_phys_terms(config_dict)
-        self.register_readout(out_dim, config_dict)
+        self.pkd_phys_norm: float = cfg.model.mdn["pkd_phys_norm"]
+        self.pkd_phys_concat: bool = cfg.model.mdn["pkd_phys_concat"]
+        self.register_pkd_phys_terms(cfg)
+        self.register_readout(out_dim, cfg)
 
         # It is used during testing: disable this layer to only predict NMDN score
-        self.no_pkd_score: bool = config_dict.get("no_pkd_score", False)
+        self.no_pkd_score: bool = cfg.get("no_pkd_score", False)
 
     def get_prot_dim(self, config_dict: dict):
         return get_prot_dim(config_dict)
 
-    def register_readout(self, out_dim: int, cfg: dict):
-        if cfg["n_paired_mdn_readout"] == 1:
+    def register_readout(self, out_dim: int, cfg: Config):
+        mdn_cfg = cfg.model.mdn
+        if mdn_cfg["n_paired_mdn_readout"] == 1:
             self.readout = nn.Sequential(nn.Linear(self.readout_dim, out_dim))
             return
         
-        n_hidden: int = cfg["n_paired_mdn_readout_hidden"]
+        n_hidden: int = mdn_cfg["n_paired_mdn_readout_hidden"]
         layers = [nn.Linear(self.readout_dim, n_hidden), nn.BatchNorm1d(n_hidden), nn.ELU(), nn.Dropout(p=0.15)]
         
-        layers.extend((cfg["n_paired_mdn_readout"] - 2) * 
+        layers.extend((mdn_cfg["n_paired_mdn_readout"] - 2) * 
                       [nn.Linear(n_hidden, n_hidden), 
                        nn.BatchNorm1d(n_hidden), nn.ELU(), 
                        nn.Dropout(p=0.15)])
         layers.append(nn.Linear(n_hidden, out_dim))
         self.readout = nn.Sequential(*layers)
 
-    def register_pkd_phys_terms(self, cfg: dict):
+    def register_pkd_phys_terms(self, cfg: Config):
         # pkd_phys_readout layer predicts a (pairwise) coefficient for the physical terms
         # DeltaG, WaterSolv and logP
         # the pairwise coefficients will be summed/averaged to compute the coefficient for the physical terms
         self.pkd_phys_readout = None
-        if cfg["pkd_phys_terms"] is None:
+        if cfg.model.mdn.pkd_phys_terms is None:
             return
         
-        assert isinstance(cfg["pkd_phys_terms"], str), cfg["pkd_phys_terms"].__class__
-        pkd_phys_terms: List[str] = cfg["pkd_phys_terms"].split(",")
+        assert isinstance(cfg.model.mdn.pkd_phys_terms, str), cfg.model.mdn.pkd_phys_terms.__class__
+        pkd_phys_terms: List[str] = cfg.model.mdn.pkd_phys_terms.split(",")
         self.pkd_phys_terms: List[str] = pkd_phys_terms
 
         # no need to use specific readout layer for physical terms if we directly concat it
@@ -227,9 +218,6 @@ class MPNNPairedPropLayer(GaussExpandLayer):
         mol_prop = mol_prop + self.modify_pred(mpnn_embed, data_batch, pair_batch)
 
         runtime_vars["pair_mol_prop"] = mol_prop
-
-        if self.pair_atom_prop_needed:
-            runtime_vars["pair_atom_prop"] = pair_prop
         return runtime_vars
     
     def modify_embedding(self, mpnn_embed: torch.FloatTensor, data_batch: Batch, pair_batch: torch.LongTensor):
@@ -238,7 +226,7 @@ class MPNNPairedPropLayer(GaussExpandLayer):
             # raw rmsd value
             rmsd_batched = data_batch.rmsd.view(-1, 1)[pair_batch, :]
             # expanded rmsd value
-            if self.config_dict["rmsd_expansion"] is not None:
+            if self.cfg.data.pre_computed.rmsd_expansion is not None:
                 rmsd_batched = self.rmsd_rbf_expansion.gaussian_dist_infuser(rmsd_batched)
             mpnn_embed = torch.concat([mpnn_embed, rmsd_batched], dim=-1)
         # concat physical terms into the final embedding
@@ -298,20 +286,13 @@ class MPNNPairedPropLayer(GaussExpandLayer):
             data_batch[("ligand", "interaction", "protein")].min_dist
     
     def retrieve_edge_embed(self, data_batch: Batch, runtime_vars: dict, edge_index: torch.LongTensor):
-        if self.ext_prot_embed:
-            # h_l: ligand embedding by order
-            h_l = runtime_vars["vi"]
-            # h_p: protein embedding by order
-            h_p = runtime_vars["prot_embed"]
-            # h_l_x and h_p_x are the embedding based on edges
-            h_l_x = h_l[edge_index[0, :], :]
-            h_p_x = h_p[edge_index[1, :], :]
-        else:
-            # An 'old' way of representing protein-ligand graph: concat them
-            # To separate protein and ligand embedding, simply use the pl_edge_index
-            h = runtime_vars["vi"]
-            h_l_x = h[edge_index[1, :]]
-            h_p_x = h[edge_index[0, :]]
+        # h_l: ligand embedding by order
+        h_l = runtime_vars["vi"]
+        # h_p: protein embedding by order
+        h_p = runtime_vars["prot_embed"]
+        # h_l_x and h_p_x are the embedding based on edges
+        h_l_x = h_l[edge_index[0, :], :]
+        h_p_x = h_p[edge_index[1, :], :]
 
         pair_batch = get_lig_batch(data_batch)[edge_index[0, :]]
         return h_l_x, h_p_x, pair_batch
@@ -337,7 +318,7 @@ class MPNNPairedPropLayer(GaussExpandLayer):
         
         # atom_prop can be computed on the fly during evaluation
         assert not self.training, "atom_prop must be pre-computed during training"
-        exp_id: int = int(osp.basename(self.config_dict["folder_prefix"]).split("_")[-1])
+        exp_id: int = int(osp.basename(self.cfg["folder_prefix"]).split("_")[-1])
         # the atomprop is computed in a different way after experiment 469.
         # I keep the original script for reproducibility
         if exp_id <= 469 or (exp_id >= 484 and exp_id <= 485):
@@ -349,7 +330,7 @@ class MPNNPairedPropLayer(GaussExpandLayer):
             phys_mol_prop: torch.Tensor = scatter_add(phys_atom_prop, get_lig_batch(data_batch), dim=0, dim_size=get_num_mols(data_batch))
             return post_calculation(phys_mol_prop)
         
-        if self.config_dict["short_name"] == "casf2016-scoring":
+        if self.cfg["short_name"] == "casf2016-scoring":
             pdb_list: List[str] = data_batch.pdb
             allh_sdf_files: List[str] = [self.casf_reader.pdb2lig_core_sdf(pdb) for pdb in pdb_list]
             sdf_ds = SDFDataset(allh_sdf_files)
@@ -360,7 +341,7 @@ class MPNNPairedPropLayer(GaussExpandLayer):
             phys_mol_prop: torch.Tensor = scatter_add(phys_atom_prop, allh_batch.atom_mol_batch, dim=0, dim_size=get_num_mols(data_batch))
             phys_mol_prop = post_calculation(phys_mol_prop)
             return phys_mol_prop
-        if self.config_dict["short_name"] == "casf2016-screening" and exp_id in [489, 530, 531]:
+        if self.cfg["short_name"] == "casf2016-screening" and exp_id in [489, 530, 531]:
             # fake mol prop, temp solution
             phys_mol_prop = torch.ones(get_num_mols(data_batch), 6).to(infer_device(data_batch)).type(infer_type(data_batch))
             return phys_mol_prop
@@ -404,7 +385,7 @@ class NMDN_AuxPropLayer(MDNPropLayer):
         pair_prob = calculate_probablity(pi, sigma, mu, dist)
         nmdn_out: dict = self.nmdn_calculator.compute_pair_lvl_scores(pair_prob, runtime_vars, data_batch)
 
-        nmdn_score: Tensor = nmdn_out[self.config_dict["auxprop_nmdn_name"]].view(-1, 1)
+        nmdn_score: Tensor = nmdn_out[self.cfg["auxprop_nmdn_name"]].view(-1, 1)
         if self.auxprop_nmdn_compute_ref:
             pair_embed = torch.concat([runtime_vars["nmdnprop_pair_embed"], nmdn_score], dim=-1)
             ref = self.readout_ref(pair_embed)

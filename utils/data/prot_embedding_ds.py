@@ -2,7 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 import logging
 import os.path as osp
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
@@ -21,18 +21,17 @@ class ProteinEmbeddingDS(AuxPropDataset):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-        self.prot_embedding_root = self.cfg["prot_embedding_root"]
-        self.prot_embed_use_chunks = self.cfg["prot_embed_use_chunks"]
-            
+        self.prot_embedding_root: List[str] = self.cfg.data.pre_computed.prot_embedding_root
         self._sanity_checked_ids = set()
+        self.prot_embedding_mapper = {}
+        for embed_root in self.prot_embedding_root:
+            self.load_prot_embed(embed_root)
+        self.cleanup_indices()
 
-        self.load_prot_embed()
-
-    def load_prot_embed(self):
+    def load_prot_embed(self, embed_root):
         # chunk behaviour: multiple protein one file
-        if not self.prot_embed_use_chunks:
-            return self.load_prot_embed_legacy()
+        if not osp.exists(osp.join(embed_root, "chunk_0.pth")):
+            return self.load_prot_embed_legacy(embed_root)
         
         # only loaded needed pdbs' ESM embedding to save memory
         needed_pdbs = set()
@@ -45,13 +44,9 @@ class ProteinEmbeddingDS(AuxPropDataset):
                 needed_pdbs.add(self.idx2pdb_mapper[idx])
 
         # load ESM embedding from memory, again, only needed protein embeddings are loaded
-        prot_embedding_mapper = {}
-        chunks = glob(osp.join(self.prot_embedding_root, "chunk_*.pth"))
-        if self.cfg["prot_embedding_roots"]:
-            for additional_root in self.cfg["prot_embedding_roots"]:
-                chunks.extend(glob(osp.join(additional_root, "chunk_*.pth")))
-        is_deep_acc_net: bool = "/DeepAccNet/" in self.prot_embedding_root
-        for chunk in tqdm(chunks, desc="loading ESM chunks"):
+        chunks = glob(osp.join(embed_root, "chunk_*.pth"))
+        is_deep_acc_net: bool = "/DeepAccNet/" in embed_root
+        for chunk in tqdm(chunks, desc=f"loading ESM {embed_root}"):
             chunk_dict: Dict[str, torch.Tensor] = torch.load(chunk, map_location="cpu")
             chunk_dict = {key.split(".")[0]: chunk_dict[key] for key in chunk_dict}
             if is_deep_acc_net:
@@ -60,12 +55,10 @@ class ProteinEmbeddingDS(AuxPropDataset):
             this_needed_pdbs = set([key.split(".")[0] for key in chunk_dict]).intersection(needed_pdbs)
             loaded_chunk_dict = {pdb: chunk_dict[pdb].cpu().squeeze(0)[1: -1, :].type(floating_type) 
                                  for pdb in this_needed_pdbs}
-            prot_embedding_mapper.update(loaded_chunk_dict)
+            self.prot_embedding_mapper.update(loaded_chunk_dict)
             # release memory
             del chunk_dict
-        self.prot_embedding_mapper = prot_embedding_mapper
 
-        self.cleanup_indices()
         return
     
     def cleanup_indices(self):
@@ -92,52 +85,33 @@ class ProteinEmbeddingDS(AuxPropDataset):
             setattr(self, split_name, index_clean)
         return
     
-    def load_prot_embed_legacy(self):
+    def load_prot_embed_legacy(self, embed_root: str):
         # remove the indices that do not have ESM embeddings due to OOM errors
         # and load needed embeddings into memory
-        prot_embedding_mapper = {}
         for split_name in ["train_index", "val_index", "test_index"]:
             this_index = getattr(self, split_name)
             if this_index is None:
                 continue
-            index_clean = []
             for i in tqdm(this_index, desc="clean_embed_file"):
                 i = i.item()
                 pdb = self.idx2pdb_mapper[i]
-                # avoid duplicate interaction with the file system
-                if pdb in prot_embedding_mapper:
-                    index_clean.append(i)
-                    continue
 
-                prot_embed = self.try_load_prot_embed(pdb)
+                prot_embed = self.try_load_prot_embed(pdb, embed_root)
                 if prot_embed is None:
                     continue
-                index_clean.append(i)
                 # remove the start-of-sentence token and end-of-sentance token
-                prot_embedding_mapper[pdb] = prot_embed.type(floating_type)
-
-            index_clean = torch.as_tensor(index_clean)
-
-            n_before = len(this_index)
-            n_after = len(index_clean)
-            assert n_after > int(0.9 * n_before), \
-                f"More than 10% indices removed due to protein embedding, before: {n_before}, after: {n_after}"
-
-            setattr(self, split_name, index_clean)
-        self.prot_embedding_mapper = prot_embedding_mapper
+                self.prot_embedding_mapper[pdb] = prot_embed.type(floating_type)
         return
 
-    def try_load_prot_embed(self, pdb):        
+    def try_load_prot_embed(self, pdb, embed_root):        
         # legacy behaviour: one protein one file
         # due to different naming convention, I need to check different combination of files :<
         file_names = [f"{pdb}.pth", f"{pdb}_protein.pth"]
-        embed_roots = self.prot_embedding_root.split(";")
-        for embed_root in embed_roots:
-            for file_name in file_names:
-                try_file = osp.join(embed_root, file_name)
-                if osp.exists(try_file):
-                    # remove the start-of-sentanse token and end-of-sentance token
-                    return torch.load(try_file, map_location="cpu").squeeze(0)[1: -1, :]
+        for file_name in file_names:
+            try_file = osp.join(embed_root, file_name)
+            if osp.exists(try_file):
+                # remove the start-of-sentence token and end-of-sentence token
+                return torch.load(try_file, map_location="cpu").squeeze(0)[1: -1, :]
         return None
 
     def get(self, idx: int, process=True) -> Data:

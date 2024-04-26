@@ -1,4 +1,3 @@
-import argparse
 import copy
 from functools import cached_property
 import glob
@@ -11,20 +10,21 @@ import shutil
 from datetime import datetime
 
 import numpy as np
+from omegaconf import OmegaConf
 import pandas as pd
 import torch
 import tqdm
 from torch.utils.data import Subset
 from torch_geometric.data import DataLoader
 
+from utils.configs import Config, read_config_file, read_folder_config
 from utils.eval.evaluator import Evaluator
 from utils.train.trainer import data_provider_solver
-from utils.DataPrepareUtils import my_pre_transform, rm_atom
+from utils.DataPrepareUtils import my_pre_transform
 from utils.data.DummyIMDataset import DummyIMDataset
 from utils.data.LargeDataset import LargeDataset
-from utils.LossFn import MDNLossFn, MDNMixLossFn
 from utils.eval.trained_folder import TrainedFolder, ds_from_args
-from utils.utils_functions import lazy_property, preprocess_config, remove_handler, add_parser_arguments, init_model_test, get_device
+from utils.utils_functions import lazy_property, remove_handler, init_model_test, get_device
 
 
 class Tester(TrainedFolder):
@@ -62,22 +62,17 @@ class Tester(TrainedFolder):
                 if key.endswith("_BN"):
                     model_data[key.split("_BN")[0]+"_LIGAND"] = model_data.pop(key)
         # ds was manually set to None
-        net = init_model_test(self.explicit_ds_args if self.explicit_ds_args else self.args, 
+        net = init_model_test(self.explicit_ds_args if self.explicit_ds_args else self.cfg, 
                                 model_data, ds=None)
         return net
 
     @cached_property
-    def args(self):
-        args: dict = super().args
-        if self.overwrite_args is not None:
-            with open(self.overwrite_args) as f:
-                overwrite_args = json.load(f)
-            for key in overwrite_args.keys():
-                args[key] = overwrite_args[key]
-        if self.explicit_ds_args is not None:
-            args["kano_ds"] = self.explicit_ds_args["kano_ds"]
-        args.update(self.additional_args)
-        return args
+    def cfg(self) -> Config:
+        cfg: Config = super().cfg
+        cfg.training.loss_fn.no_pkd_score = self.additional_args["no_pkd_score"]
+        cfg.data.diffdock_nmdn_result = self.additional_args["diffdock_nmdn_result"]
+        cfg.data.pre_computed.linf9_csv = self.additional_args["linf9_csv"]
+        return cfg
 
     @cached_property
     def loss_fn(self):
@@ -92,7 +87,7 @@ class Tester(TrainedFolder):
                 return super(Tester, self).ds
             
             _data_provider = None
-            default_kwargs = {'data_root': self.explicit_ds_args["data_root"], 'pre_transform': my_pre_transform,
+            default_kwargs = {'data_root': self.explicit_ds_args.data.data_root, 'pre_transform': my_pre_transform,
                     'record_long_range': True, 'type_3_body': 'B', 'cal_3body_term': True}
             ds_cls, ds_args = data_provider_solver(self.explicit_ds_args, default_kwargs)
             # if issubclass(ds_cls, (DummyIMDataset, ESMGearNetProtLig)):
@@ -115,61 +110,25 @@ class Tester(TrainedFolder):
         return super(Tester, self).ds
 
     @property
-    def explicit_ds_args(self):
+    def explicit_ds_args(self) -> Config:
         if self.explicit_ds_config is None:
             return None
 
         if self._explicit_ds_args is not None:
             return self._explicit_ds_args
         
-        if isinstance(self.explicit_ds_config, dict):
-            self._explicit_ds_args = copy.deepcopy(self.args)
-            for key in self.explicit_ds_config:
-                self._explicit_ds_args[key] = self.explicit_ds_config[key]
-            return self._explicit_ds_args
-        
-        explicit_ds_args = self.parse_explicit_ds_args(self.explicit_ds_config)
-        # explicit_ds_args overrides default configs
-        exlplicit_keys = set(["prot_embed_use_chunks"])
-        with open(self.explicit_ds_config) as f:
-            for line in f.readlines():
-                exlplicit_keys.add(line.split("=")[0].split("--")[-1])
-        for key in self.args.keys():
-            # dont want to overwrite default argument of --split
-            if key not in exlplicit_keys and key != "split":
-                explicit_ds_args[key] = self.args[key]
-        # "rmsd_csv" determines the dimension of "pkd_phys_readout" layer
-        # if the original model does not use RMSD info, the test model should not use it
-        # otherwise the dimension will not fit.
-        if self.args["rmsd_csv"] is None:
-            explicit_ds_args["rmsd_csv"] = None
-        explicit_ds_args["valid_batch_size"] = min(explicit_ds_args["valid_batch_size"], self.args["valid_batch_size"])
-        if "ESMGearnet" in self.args["modules"].split():
-            explicit_ds_args["data_provider"] = explicit_ds_args["data_provider"].replace("protein_embedding", "ESMGearNetProtLig")
-            explicit_ds_args["prot_embedding_root"] = None
-        self._explicit_ds_args = explicit_ds_args
-        self._explicit_ds_args.update(self.additional_args)
-        self._explicit_ds_args = preprocess_config(self._explicit_ds_args)
+        explicit_cfg = OmegaConf.load(self.explicit_ds_config)
+        explicit_cfg = OmegaConf.merge(self.cfg, explicit_cfg)
+        self._explicit_ds_args = explicit_cfg
         return self._explicit_ds_args
-    
-    @staticmethod
-    def parse_explicit_ds_args(cfg_file: str) -> dict:
-        assert osp.exists(cfg_file), cfg_file
-        ds_parser = argparse.ArgumentParser(fromfile_prefix_chars='@')
-        ds_parser.add_argument("--short_name", type=str)
-        ds_parser.add_argument("--record_name", action="append", default=None)
-        ds_parser = add_parser_arguments(ds_parser)
-        ds_args, unknown = ds_parser.parse_known_args(["@" + cfg_file])
-        explicit_ds_args = vars(ds_args)
-        return explicit_ds_args
 
     @property
     def save_root(self) -> str:
         if self._test_dir is None:
             if self.explicit_ds_config is not None:
-                test_prefix = self.args["folder_prefix"] + f"_test_on_{self.explicit_ds_args['short_name']}_"
+                test_prefix = self.cfg.folder_prefix + f"_test_on_{self.explicit_ds_args.short_name}_"
             else:
-                test_prefix = self.args["folder_prefix"] + '_test_'
+                test_prefix = self.cfg.folder_prefix + '_test_'
             if self.use_exist:
                 exist_folders = glob.glob(osp.join(self.folder_name, osp.basename(test_prefix)+"*"))
                 if len(exist_folders) > 0:
@@ -183,7 +142,7 @@ class Tester(TrainedFolder):
 
     def run_test(self):
         shutil.copy(self.config_name, self.save_root)
-        self.info("dataset in args: {}".format(self.args["data_provider"]))
+        self.info("dataset in args: {}".format(self.cfg.data.data_provider))
 
         # ---------------------------------- Testing -------------------------------- #
 
@@ -203,12 +162,6 @@ class Tester(TrainedFolder):
                 self.eval_ds(this_ds, explicit_split, "test_index")
         else:
             self.record_name(self.ds_test)
-            if self.ds.train_index is not None and \
-                    len(self.args["remove_atom_ids"]) > 0 and self.args["remove_atom_ids"][0] > 0:
-                __, self.ds.val_index, _ = rm_atom(self.args["remove_atom_ids"], self.ds, ("valid",),
-                                                   (None, self.ds.val_index, None))
-                __, __, self.ds.test_index = rm_atom(self.args["remove_atom_ids"], self.ds_test, ('test',),
-                                                     (None, None, self.ds.test_index))
 
             self.info("dataset: {}".format(self.ds.processed_file_names))
             self.info("dataset test: {}".format(self.ds_test.processed_file_names))
@@ -295,15 +248,12 @@ class Tester(TrainedFolder):
 
         self.info("{} size: {}".format(index_name, len(this_index)))
 
-        batch_size = self.args["valid_batch_size"]
-        if self.explicit_ds_args is not None:
-            batch_size = self.explicit_ds_args["valid_batch_size"]
+        batch_size = self.explicit_ds_args.training.valid_batch_size
         test_ds: Subset = Subset(this_ds, torch.as_tensor(this_index).tolist())
         this_dl = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=self.num_workers)
         if self.use_tqdm:
             this_dl = tqdm.tqdm(this_dl, desc=index_name, total=len(this_ds)//batch_size)
 
-        assert self.args["uncertainty_modify"] == 'none', self.args["uncertainty_modify"]
         result = self.evaluator(self.model, this_dl, self.loss_fn)
         result["target_names"] = self.loss_fn.target_names
         torch.save(result, result_file)

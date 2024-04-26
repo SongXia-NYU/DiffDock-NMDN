@@ -20,8 +20,8 @@ class TestResultAnalyzer(TestedFolderReader):
         super().__init__(folder_name, tested_folder_name, root)
 
     def run(self):
-        file_locator = torch.load(osp.join(self.args["data_root"], self.ds_options["file_locator"]))
-        split_index = torch.load(osp.join(self.args["data_root"], self.ds_options["split"]))
+        file_locator = torch.load(osp.join(self.cfg["data_root"], self.ds_options["file_locator"]))
+        split_index = torch.load(osp.join(self.cfg["data_root"], self.ds_options["split"]))
         
         error_martinis = glob("/scratch/sx801/scripts/Mol3DGenerator/scripts/martini_shaken/martini_checker/af_frag_2/single_csvs/*..csv")
         error_martinis = set([osp.basename(f).split("..csv")[0] for f in error_martinis])
