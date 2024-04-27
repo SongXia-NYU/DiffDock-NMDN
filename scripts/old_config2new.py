@@ -1,3 +1,4 @@
+from glob import glob
 import yaml
 from utils.configs import schema
 
@@ -28,8 +29,9 @@ def old2new(old_cfg_file: str):
             old_dict[key] = val
 
     out_dict = {}
-    out_dict["data"] = {"pre_computed": {"prot_embedding_root": [old_dict["prot_embedding_root"]]}}
-    del old_dict["prot_embedding_root"]
+    if "prot_embedding_root" in old_dict:
+        out_dict["data"] = {"pre_computed": {"prot_embedding_root": [old_dict["prot_embedding_root"]]}}
+        del old_dict["prot_embedding_root"]
     if "target_names" in old_dict:
         out_dict["training"] = {"loss_fn": {"target_names": [old_dict["target_names"]]}}
         del old_dict["target_names"]
@@ -79,5 +81,5 @@ def old2new(old_cfg_file: str):
     with open(outdir, "w") as f:
         yaml.safe_dump(out_dict, f)
 
-for cfg_name in ["exp_pl_534_run_2024-01-22_211045__480688/config-exp_pl_534.txt", "configs/test_set_casf-docking_hetero.complete.polar.polar.implicit.min_dist.txt"]:
+for cfg_name in glob("configs/*.txt"):
     old2new(cfg_name)

@@ -1,8 +1,4 @@
-# Do NOT delete these two unused imports
-# They have to be imported before torchdrug for some reason, otherwise they will fail
-import torchvision
 from geometry_processors.pl_dataset.lit_pcba_reader import TARGETS
-from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
 
 from argparse import ArgumentParser
 from typing import List

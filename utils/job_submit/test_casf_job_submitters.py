@@ -79,7 +79,6 @@ class CASF_JobSubmitter(TestJobSubmitter):
                 "overlay_docking": overlay_docking.replace("$", "\$"), "overlay_screening": overlay_screening.replace("$", "\$"),
                 "docking_config": docking_config, "screening_config": screening_config, "casf_extra": casf_extra}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_line(self.folder_reader.cfg["data_root"], self.folder_reader.cfg["add_sqf"])
         info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         return info
     
@@ -104,14 +103,14 @@ class CASF_BlindDockJobSubmitter(CASF_JobSubmitter):
         info = super().info4tmpl
         ds_name = self.ds_args["test_name"]
         if self.ref: ds_name += "-ref"
-        docking_config = f"configs/test_set_casf-blind-docking_{ds_name}.txt"
+        docking_config = f"configs/test_set_casf-blind-docking_{ds_name}.yaml"
         assert osp.exists(docking_config), docking_config
-        screening_config = f"configs/test_set_casf-blind-screening_{ds_name}.txt"
+        screening_config = f"configs/test_set_casf-blind-screening_{ds_name}.yaml"
         info["docking_config"] = docking_config
         info["screening_config"] = screening_config
         info["docking_extra"] = ""
         info["screening_extra"] = ""
-        if self.folder_reader.cfg["diffdock_nmdn_result"] is not None:
+        if self.folder_reader.cfg.data["diffdock_nmdn_result"] is not None:
             info["docking_extra"] = "--diffdock_nmdn_result /scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-docking_2024-03-31_174131 "
             info["screening_extra"] = "--diffdock_nmdn_result /scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_casf2016-blind-screening_2024-03-27_005509"
         # info["casf_extra"] += f"--docking_config {docking_config}"

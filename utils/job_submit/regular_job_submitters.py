@@ -4,8 +4,9 @@ import os
 import os.path as osp
 from typing import Dict
 
+from utils.configs import read_config_file
 from utils.train.trainer import data_provider_solver
-from utils.eval.trained_folder import TrainedFolder, read_config_file
+from utils.eval.trained_folder import TrainedFolder
 from utils.utils_functions import lazy_property
 
 class JobSubmitter:
@@ -14,20 +15,6 @@ class JobSubmitter:
 
     def run(self):
         raise NotImplementedError
-    
-    @staticmethod
-    def overlay_line(data_root, overlay_list) -> str:
-        overlay = None
-        all_overlays = ["/scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro"]
-        if overlay_list is not None:
-            all_overlays.extend([osp.join(data_root, sqf) for sqf in overlay_list])
-        for sqf in all_overlays:
-            if overlay is None:
-                overlay = sqf
-            else:
-                overlay += f" --overlay {sqf}"
-            assert osp.exists(sqf.split(":")[0]), sqf
-        return overlay.replace("$", "\$")
 
 class TemplateJobSubmitter(JobSubmitter):
     def __init__(self, debug) -> None:
@@ -162,7 +149,6 @@ class TestJobSubmitter(TemplateJobSubmitter):
     def info4tmpl(self):
         info = {}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_line(self.folder_reader.cfg["data_root"], self.folder_reader.cfg["add_sqf"])
         info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         return info
 

@@ -32,7 +32,6 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
     def info4tmpl(self):
         info = {}
         info["test_folder"] = self.run_dir
-        info["ds_overlay"] = self.overlay_line(self.folder_reader.cfg["data_root"], self.folder_reader.cfg["add_sqf"])
         info["job_name"] = osp.basename(self.folder_reader.cfg["folder_prefix"])
         if self.target != "All":
             ds_name = self.ds_args["test_name"]
@@ -68,7 +67,7 @@ class LIT_PCBA_JobSubmitter(TestJobSubmitter):
             this_info["ds_config"] = f"configs/test_set_lit-pcba-{target.lower()}_{ds_name}.txt"
             assert osp.exists(this_info["ds_config"]), this_info["ds_config"]
             if self.diffdock_nmdn:
-                nmdn_result_folder = glob(f"./exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_{target.lower()}_*")[0]
+                nmdn_result_folder = glob(f"/scratch/sx801/scripts/DiffDock-NMDN/exp_pl_534_run_2024-01-22_211045__480688/exp_pl_534_test_on_{target.lower()}_*")[0]
                 this_info["diffdock_nmdn_result"] = nmdn_result_folder
             this_info["pcba_extra"] = f"--linf9_csv '/scratch/sx801/scripts/DiffDock-NMDN/scripts/benchmark-linf9-xgb/preds/{target.split('-')[0]}/*.csv' "
             res += model_script.format(**this_info)

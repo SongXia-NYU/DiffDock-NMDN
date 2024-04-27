@@ -17,7 +17,7 @@ module purge
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
             export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
-            python test.py --folder_names '{test_folder}' \
+            python test.py --folder_name '{test_folder}' \
             --explicit_ds_config {ds_config} \
             --use_exist --use_tqdm --only_predict --compute_external_mdn "
 
@@ -42,7 +42,7 @@ module purge
             --overlay /vast/sx801/geometries/LIT-PCBA.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; export PYTHONPATH=.:$PYTHONPATH; \
-            python scripts/batch_cal_lit_pcba_scores.py --folder_names '{test_folder}' \
+            python scripts/batch_cal_lit_pcba_scores.py --folder_name '{test_folder}' \
             --target {target} "
 
 ##END_SCORE_SCRIPT

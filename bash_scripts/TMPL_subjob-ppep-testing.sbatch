@@ -16,7 +16,7 @@ module purge
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
             export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
-            python test.py --folder_names {test_folder}  \
+            python test.py --folder_name {test_folder}  \
             --explicit_ds_config configs/test_set_deep_accnet_test.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
 
@@ -35,7 +35,7 @@ exit
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
             export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
-            python test.py --folder_names {test_folder}  \
+            python test.py --folder_name {test_folder}  \
             --explicit_ds_config configs/test_set_pp_test_af22_50_rankeds.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
 
@@ -44,7 +44,7 @@ exit
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
             export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
-            python test.py --folder_names {test_folder}  \
+            python test.py --folder_name {test_folder}  \
             --explicit_ds_config configs/test_set_pp_test_decoys2_separated.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
 
