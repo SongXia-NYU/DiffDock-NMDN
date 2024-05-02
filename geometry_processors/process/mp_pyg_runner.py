@@ -199,12 +199,12 @@ def proc_hetero_graph(info: MPInfo) -> Data:
     logger = logging.getLogger(".prody")
     logger.setLevel(logging.CRITICAL)
 
-    processor = PLHeteroProcessor(info)
+    processor = PLHeteroProcessor(info, protein_reader_args={"force_polarh": True})
     try:
         d = processor.process_single_entry()
         return d
     except Exception as e:
-        # raise e
+        raise e
         print(f"Error processing {vars(info)}:", e)
         return None
 

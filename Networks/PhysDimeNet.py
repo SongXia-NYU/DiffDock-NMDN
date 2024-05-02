@@ -416,7 +416,7 @@ class PhysDimeNet(nn.Module):
             return edge_index_getter, {}
         
         # heterogenous data
-        if isinstance(data_batch.get_example(0), HeteroData):
+        if isinstance(data_batch, HeteroData) or isinstance(data_batch.get_example(0), HeteroData):
             for key in self.bonding_type_keys:
                 if key == "BN":
                     edge_index_getter["BN"] = data_batch[("ligand", "interaction", "ligand")].edge_index
@@ -616,14 +616,14 @@ class PhysDimeNet(nn.Module):
             output["mol_prop"] = mol_prop
         return output
 
-    def proc_data_dtype(self, maybe_data_batch: Union[Batch, dict]) -> Union[Batch, dict]:
+    def proc_data_dtype(self, maybe_data_batch: Union[Batch, HeteroData, dict]) -> Union[Batch, HeteroData, dict]:
         # data_batch is a dict when using ESM-GearNet
         if isinstance(maybe_data_batch, dict):
             maybe_data_batch["ligand"] = self.proc_data_dtype(maybe_data_batch["ligand"])
             return maybe_data_batch
 
         data_batch = maybe_data_batch
-        d0 = data_batch.get_example(0)
+        d0 = data_batch.get_example(0) if isinstance(data_batch, Batch) else data_batch
         def _correct_dtype(t):
             if not isinstance(t, torch.Tensor):
                 return t

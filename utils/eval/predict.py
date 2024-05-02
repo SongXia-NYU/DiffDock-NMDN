@@ -39,6 +39,7 @@ class SinglePredictor(TrainedFolder):
         self.model.module.requires_atom_prop = True
 
     def predict(self, data: Data, to_numpy: bool = False) -> dict:
+        self.model.eval()
         model_out = self.model(data.to(get_device()))
         if to_numpy:
             for key in model_out: model_out[key] = model_out[key].detach().cpu().numpy()
