@@ -39,6 +39,9 @@ class ProtSingleMDNLayer(GeneralMDNLayer):
                 edge_mask: torch.BoolTensor = edge_dist <= self.seq_separation_cutoff
             pp_edge = pp_edge[:, edge_mask]
             pp_dist = pp_dist[edge_mask]
+            h_1_i = h_1_i[edge_mask, :]
+            h_2_j = h_2_j[edge_mask, :]
+            pair_batch = pair_batch[edge_mask]
         # only obtain needed pl_edges to avoid un-needed calculation
         if self.cutoff_needed is not None:
             this_pl_dist_mask = (pp_dist <= self.cutoff_needed).view(-1)
