@@ -5,7 +5,16 @@ It is the official implementation of the NMDN model published at [REPLACE_ME]().
 ![](./model.png)
 
 # Environment Setup
-WIP
+
+- [torch](https://pytorch.org/)                     1.13.1
+- [torch-geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html)           2.2.0; The following dependencies should also be installed along with torch-geometric.
+    - torch-scatter             2.1.0
+    - torch-sparse              0.6.15
+    - torch-cluster             1.6.0
+- [fair-esm](https://github.com/facebookresearch/esm)                2.0.0
+- [rdkit](https://www.rdkit.org/docs/Install.html)                     2023.9.3
+- [prody](http://www.bahargroup.org/prody/)                     2.4.1
+- [seaborn](https://seaborn.pydata.org/)                   0.13.2
 
 # Run NMDN model
 To run prediction, you need the protein structure `PROTEIN.pdb` and docked ligand poses `LIG1.sdf`, `LIG2.sdf`, ...
