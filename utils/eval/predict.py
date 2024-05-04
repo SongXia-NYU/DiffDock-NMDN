@@ -85,8 +85,8 @@ class EnsPredictor:
         self.single_predictors = [SinglePredictor(f, sdf_files, pyg_name, pyg_root, init_model) 
                                   for f, init_model in zip(self.trained_folders, init_models)]
         # inject data set to avoid re-loading data set
-        for single_predictor in self.single_predictors[1:]:
-            single_predictor._lazy__ds = self.single_predictors[0].ds
+        # for single_predictor in self.single_predictors[1:]:
+        #     single_predictor._lazy__ds = self.single_predictors[0].ds
 
     def predict(self, data: Data, to_numpy: bool = False) -> dict:
         model_out =defaultdict(lambda: 0.)
@@ -108,8 +108,8 @@ class EnsPredictor:
     
     def iter_predictions(self):
         # avoid recalculation of the data sets
-        for predictor in self.single_predictors[1:]:
-            predictor._lazy__data_provider = self.single_predictors[0].ds
+        # for predictor in self.single_predictors[1:]:
+        #     predictor._lazy__data_provider = self.single_predictors[0].ds
 
         for predictions in zip(*(predictor.iter_predictions() for predictor in self.single_predictors)):
             if len(predictions) == 0:

@@ -306,7 +306,8 @@ class MPNNPairedPropLayer(GaussExpandLayer):
             if isinstance(mol_prop, list):
                 mol_prop = torch.concat([torch.as_tensor(t).view(1, -1) for t in mol_prop], dim=0)
             mol_prop = mol_prop.view(get_num_mols(data_batch), -1)
-            mol_prop: torch.Tensor = post_calculation(mol_prop)
+            if mol_prop.shape[1] == 3:
+                mol_prop: torch.Tensor = post_calculation(mol_prop)
             return mol_prop.to(infer_device(data_batch))
         
         if hasattr(data_batch, "atom_prop"):
