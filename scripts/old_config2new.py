@@ -81,5 +81,5 @@ def old2new(old_cfg_file: str):
     with open(outdir, "w") as f:
         yaml.safe_dump(out_dict, f)
 
-for cfg_name in glob("configs/*.txt"):
+for cfg_name in glob("/scratch/sx801/scripts/physnet-dimenet1/MartiniDock/pretrained/exp_frag20sol_012_active_ALL_2022-05-01_112820/exp_*_cycle_-1_*/config-*.txt"):
     old2new(cfg_name)

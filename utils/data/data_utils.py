@@ -104,30 +104,37 @@ def get_pl_edge(data: Union[Data, Batch]) -> torch.LongTensor:
     return data[("ligand", "interaction", "protein")].min_dist_edge_index
 
 # ----------------------- Works for Batch ------------------------- #
-def get_lig_batch(data: Batch) -> torch.LongTensor:
+def get_lig_batch(data: Union[HeteroData, Batch]) -> torch.LongTensor:
     # data_batch is a dict when using ESM-GearNet
     if isinstance(data, dict): data = data["ligand"]
+
+    if isinstance(data, HeteroData):
+        return torch.as_tensor([0 for __ in range(data["ligand"].R.shape[0])]).to(get_device())
 
     d0 = data.get_example(0)
     if isinstance(d0, MyData):
         return data.atom_mol_batch
     
-    assert isinstance(data, HeteroData), data.__class__
+    assert isinstance(d0, HeteroData), data.__class__
     return data["ligand"].batch
 
-def get_num_mols(data: Batch) -> torch.LongTensor:
+def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:
     # data_batch is a dict when using ESM-GearNet
     if isinstance(data, dict): data = data["ligand"]
+
+    # single batch, only used during prediction
+    if isinstance(data, HeteroData):
+        return 1
 
     d0 = data.get_example(0)
     if isinstance(d0, MyData):
         return data.N.shape[0]
     
-    assert isinstance(data, HeteroData), data.__class__
+    assert isinstance(d0, HeteroData), data.__class__
     return data["ligand"].N.shape[0]
 
-def data_to_device(data: Union[Batch, dict]):
-    if isinstance(data, Batch):
+def data_to_device(data: Union[Batch, Data, dict]):
+    if isinstance(data, (Batch, Data)):
         return data.to(get_device())
     
     # PL dataset from ESM-GearNet
@@ -135,17 +142,17 @@ def data_to_device(data: Union[Batch, dict]):
         data[key] = data[key].to(get_device())
     return data
 
-def get_ion_z(data: Union[Batch, dict]):
+def get_ion_z(data: Union[Batch, Data, dict]):
     # data_batch is a dict when using ESM-GearNet
     if isinstance(data, dict):
         data = data["ligand"]
     
     return data["ion"].Z
 
-def get_sample_id(data: Union[Batch, dict]):
+def get_sample_id(data: Union[Batch, Data, dict]):
     return get_prop(data, "sample_id")
 
-def get_prop(data: Union[Batch, dict], name: str):
+def get_prop(data: Union[Batch, Data, dict], name: str):
     # data_batch is a dict when using ESM-GearNet
     if isinstance(data, dict):
         data = data["ligand"]

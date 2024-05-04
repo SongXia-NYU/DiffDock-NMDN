@@ -69,9 +69,12 @@ class Tester(TrainedFolder):
     @cached_property
     def cfg(self) -> Config:
         cfg: Config = super().cfg
-        cfg.training.loss_fn.no_pkd_score = self.additional_args["no_pkd_score"]
-        cfg.data.diffdock_nmdn_result = self.additional_args["diffdock_nmdn_result"]
-        cfg.data.pre_computed.linf9_csv = self.additional_args["linf9_csv"]
+        if "no_pkd_score" in self.additional_args:
+            cfg.training.loss_fn.no_pkd_score = self.additional_args["no_pkd_score"]
+        if "diffdock_nmdn_result" in self.additional_args:
+            cfg.data.diffdock_nmdn_result = self.additional_args["diffdock_nmdn_result"]
+        if "linf9_csv" in self.additional_args:
+            cfg.data.pre_computed.linf9_csv = self.additional_args["linf9_csv"]
         return cfg
 
     @cached_property

@@ -196,6 +196,7 @@ class Config:
     comment: str = MISSING
     folder_prefix: str = MISSING
     debug_mode: bool = False
+    no_pkd_score: bool = False
 
     model: ModelConfig = field(default_factory=ModelConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)

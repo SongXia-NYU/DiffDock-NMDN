@@ -58,11 +58,6 @@ class PhysDimeNet(nn.Module):
             self.no_sum_output = False
             self.n_output = self.model_cfg["n_output"]
 
-        print("------unused keys in model-----")
-        for key in kwargs:
-            print("{}={}".format(key, kwargs[key]))
-        print(">>>>>>>>unused keys in model<<<<<<<<<<")
-
         self.expansion_fn: Dict[str, str] = expansion_splitter(self.model_cfg["expansion_fn"])
 
         self.activations: List[str] = self.model_cfg["activations"].split(" ")
@@ -168,39 +163,23 @@ class PhysDimeNet(nn.Module):
         '''
         Atom-wise shift and scale, used in PhysNet
         '''
-        n_atom_embedding = self.cfg["n_atom_embedding"]
-        if self.cfg["uni_task_ss"]:
-            ss_dim = 1
-        else:
-            ss_dim = self.n_output
-        if self.cfg["shared_normalize_param"]:
-            shift_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type)
-            scale_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type).fill_(1.0)
-            if energy_shift is not None:
-                if isinstance(energy_shift, torch.Tensor):
-                    shift_matrix[:, :] = energy_shift.view(1, -1)[:, :ss_dim]
-                else:
-                    shift_matrix[:, 0] = energy_shift
-            if energy_scale is not None:
-                if isinstance(energy_scale, torch.Tensor):
-                    scale_matrix[:, :] = energy_scale.view(1, -1)[:, :ss_dim]
-                else:
-                    scale_matrix[:, 0] = energy_scale
-            shift_matrix = shift_matrix / len(self.bonding_type_keys)
-            self.register_parameter('scale', torch.nn.Parameter(scale_matrix, requires_grad=True))
-            self.register_parameter('shift', torch.nn.Parameter(shift_matrix, requires_grad=self.model_cfg.normalization["train_shift"]))
-        else:
-            for key in self.bonding_type_keys:
-                shift_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type)
-                scale_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type).fill_(1.0)
-                if energy_shift is not None:
-                    shift_matrix[:, 0] = energy_shift
-                if energy_scale is not None:
-                    scale_matrix[:, 0] = energy_scale
-                shift_matrix = shift_matrix / len(self.bonding_type_keys)
-                self.register_parameter('scale{}'.format(key), torch.nn.Parameter(scale_matrix, requires_grad=True))
-                self.register_parameter('shift{}'.format(key),
-                                        torch.nn.Parameter(shift_matrix, requires_grad=self.cfg["train_shift"]))
+        n_atom_embedding = self.cfg.model["n_atom_embedding"]
+        ss_dim = self.n_output
+        shift_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type)
+        scale_matrix = torch.zeros(n_atom_embedding, ss_dim).type(floating_type).fill_(1.0)
+        if energy_shift is not None:
+            if isinstance(energy_shift, torch.Tensor):
+                shift_matrix[:, :] = energy_shift.view(1, -1)[:, :ss_dim]
+            else:
+                shift_matrix[:, 0] = energy_shift
+        if energy_scale is not None:
+            if isinstance(energy_scale, torch.Tensor):
+                scale_matrix[:, :] = energy_scale.view(1, -1)[:, :ss_dim]
+            else:
+                scale_matrix[:, 0] = energy_scale
+        shift_matrix = shift_matrix / len(self.bonding_type_keys)
+        self.register_parameter('scale', torch.nn.Parameter(scale_matrix, requires_grad=True))
+        self.register_parameter('shift', torch.nn.Parameter(shift_matrix, requires_grad=self.model_cfg.normalization["train_shift"]))
 
     def register_post_modules(self):
         # TODO Post modules to list
@@ -323,13 +302,8 @@ class PhysDimeNet(nn.Module):
 
         Z = get_lig_z(data_batch)
 
-        if self.shared_normalize_param:
-            for key in self.bonding_type_keys:
-                pred_sum_by_bond[key] = self.scale[Z, :] * pred_sum_by_bond[key] + self.shift[Z, :]
-        else:
-            for key in self.bonding_type_keys:
-                pred_sum_by_bond[key] = getattr(self, 'scale{}'.format(key))[Z, :] * pred_sum_by_bond[key] + \
-                                            getattr(self, 'shift{}'.format(key))[Z, :]
+        for key in self.bonding_type_keys:
+            pred_sum_by_bond[key] = self.scale[Z, :] * pred_sum_by_bond[key] + self.shift[Z, :]
         return pred_sum_by_bond
     
     def run_main_modules(self, runtime_vars: dict, edge_index_getter, msg_edge_index_getter, expansions, edge_type_getter):
@@ -416,7 +390,7 @@ class PhysDimeNet(nn.Module):
             return edge_index_getter, {}
         
         # heterogenous data
-        if isinstance(data_batch.get_example(0), HeteroData):
+        if isinstance(data_batch, HeteroData) or isinstance(data_batch.get_example(0), HeteroData):
             for key in self.bonding_type_keys:
                 if key == "BN":
                     edge_index_getter["BN"] = data_batch[("ligand", "interaction", "ligand")].edge_index
@@ -616,14 +590,14 @@ class PhysDimeNet(nn.Module):
             output["mol_prop"] = mol_prop
         return output
 
-    def proc_data_dtype(self, maybe_data_batch: Union[Batch, dict]) -> Union[Batch, dict]:
+    def proc_data_dtype(self, maybe_data_batch: Union[Batch, HeteroData, dict]) -> Union[Batch, HeteroData, dict]:
         # data_batch is a dict when using ESM-GearNet
         if isinstance(maybe_data_batch, dict):
             maybe_data_batch["ligand"] = self.proc_data_dtype(maybe_data_batch["ligand"])
             return maybe_data_batch
 
         data_batch = maybe_data_batch
-        d0 = data_batch.get_example(0)
+        d0 = data_batch.get_example(0) if isinstance(data_batch, Batch) else data_batch
         def _correct_dtype(t):
             if not isinstance(t, torch.Tensor):
                 return t
