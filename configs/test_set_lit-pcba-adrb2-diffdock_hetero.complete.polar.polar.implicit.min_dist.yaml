@@ -1,0 +1,17 @@
+data:
+  data_provider: protein_embedding[dataset_name=LIT-PCBA-D021-ADRB2.hetero.polar.polar.implicit.mindist/part_*.pyg]
+  data_root: /scratch/sx801/data/im_datasets
+  pre_computed:
+    atom_prop_ds: LIT-PCBA-ADRB2_ligmolprop_frag20sol_012_ens.allh.pyg
+    lig_identifier_dst: file_handle_ranked
+    lig_identifier_src: file_handle_ranked
+    prot_embedding_root:
+    - /vast/sx801/geometries/LIT-PCBA-DiffDock/ADRB2/prot_polar.esm2_t33_650M_UR50D
+    rmsd_csv: /vast/sx801/geometries/LIT-PCBA-DiffDock/ADRB2/rmsd_info/job_*.csv
+  proc_lit_pcba: true
+record_name:
+- sample_id
+- file_handle
+- rank
+- confidence
+short_name: adrb2-diffdock

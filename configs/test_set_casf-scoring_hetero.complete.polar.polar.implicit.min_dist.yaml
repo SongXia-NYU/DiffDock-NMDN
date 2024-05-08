@@ -1,0 +1,12 @@
+data:
+  data_provider: protein_embedding[dataset_name=casf-scoring.hetero.complete.polar.polar.implicit.min_dist.pyg]
+  data_root: /scratch/sx801/data/im_datasets
+  pre_computed:
+    prot_embedding_root:
+    - /CASF-2016-cyang/polar.esm2_t33_650M_UR50D
+record_name:
+- sample_id
+- ligand_file
+short_name: casf2016-scoring
+training:
+  valid_batch_size: 32

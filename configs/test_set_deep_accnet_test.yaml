@@ -1,0 +1,12 @@
+data:
+  data_provider: protein_embedding_fly[dataset_name=DeepAccNet_testset.pyg]
+  data_root: /scratch/sx801/data/im_datasets
+  pre_computed:
+    prot_embedding_root:
+    - /scratch/xd638/20240407_DeepAccNet_unzip/test/DeepAccNet_test_esm_embedding_20240409
+record_name:
+- sample_id
+- protein_file
+short_name: deep_accnet_test
+training:
+  valid_batch_size: 32

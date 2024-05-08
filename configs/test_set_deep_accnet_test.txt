@@ -1,8 +1,0 @@
---short_name=deep_accnet_test
---data_provider=protein_embedding_fly[dataset_name=DeepAccNet_testset.pyg]
---prot_embedding_root=/scratch/xd638/20240407_DeepAccNet_unzip/test/DeepAccNet_test_esm_embedding_20240409
---prot_embed_use_chunks
---data_root=/scratch/sx801/data/im_datasets
---record_name=sample_id
---record_name=protein_file
---valid_batch_size=32

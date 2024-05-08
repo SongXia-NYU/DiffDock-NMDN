@@ -1,0 +1,12 @@
+data:
+  data_provider: protein_embedding[dataset_name=LIT-PCBA-D021-D022-IDH1.polar.polar.implicit.mindist/part_*.pyg]
+  data_root: /scratch/sx801/data/im_datasets
+  pre_computed:
+    prot_embedding_root:
+    - /vast/sx801/geometries/LIT-PCBA-DiffDock/IDH1/prot_polar.esm2_t33_650M_UR50D
+record_name:
+- sample_id
+- file_handle
+- rank
+- confidence
+short_name: idh1-diffdock

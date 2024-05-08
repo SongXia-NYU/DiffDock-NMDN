@@ -1,0 +1,12 @@
+data:
+  data_provider: protein_embedding[dataset_name=yaowen-nonbinders-hetero/*.pyg]
+  data_root: /scratch/sx801/data/im_datasets
+  pre_computed:
+    prot_embedding_root:
+    - /vast/sx801/geometries/Yaowen_nonbinders/prot_polar.esm2_t33_650M_UR50D
+record_name:
+- sample_id
+- file_handle
+short_name: yaowen_nonbinders
+training:
+  valid_batch_size: 32

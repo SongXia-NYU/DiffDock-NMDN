@@ -1,0 +1,9 @@
+data:
+  data_provider: protein_embedding[dataset_name=PBind2020OG.diffdock-nmdn.hetero.polar.polar/part_*.pyg]
+  data_root: /scratch/sx801/data/im_datasets
+record_name:
+- sample_id
+- file_handle
+short_name: pbind2020-diffdock-nmdn
+training:
+  valid_batch_size: 32
