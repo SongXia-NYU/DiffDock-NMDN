@@ -120,7 +120,9 @@ class Tester(TrainedFolder):
         if self._explicit_ds_args is not None:
             return self._explicit_ds_args
         
-        explicit_cfg = OmegaConf.load(self.explicit_ds_config)
+        explicit_cfg: Config = OmegaConf.load(self.explicit_ds_config)
+        if self.cfg.data.pre_computed.rmsd_csv is None:
+            explicit_cfg.data.pre_computed.rmsd_csv = None
         explicit_cfg = OmegaConf.merge(self.cfg, explicit_cfg)
         self._explicit_ds_args = explicit_cfg
         return self._explicit_ds_args

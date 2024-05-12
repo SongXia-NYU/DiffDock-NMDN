@@ -63,15 +63,13 @@ class TrainJobSubmitter(TemplateJobSubmitter):
 
     @property
     def update_bn_needed(self):
-        if self._update_bn_needed is None:
-            self._update_bn_needed = self.args["loss_metric"] == "mdn" and not self.args["swa_use_buffers"]
-        return self._update_bn_needed
+        return False
 
     @property
     def info4tmpl(self):
         if self._info4tmpl is None:
-            info = {"config_file": self.config_file, "ds_overlay": self.overlay_line(self.args["data_root"], self.args["add_sqf"]),
-                    "job_name": osp.basename(self.args["folder_prefix"]), "mem": self.args["mem"]}
+            info = {"config_file": self.config_file, "job_name": osp.basename(self.args["folder_prefix"]),
+                    "mem": 55}
 
             if self.update_bn_needed:
                 info["trained_folder"] = f"{self.args['folder_prefix']}*"

@@ -74,6 +74,16 @@ class DummyIMDataset(InMemoryDataset):
             self.linf9_query = LinF9Query(cfg, self.query_key)
 
         self.cleanup_indices_linf9()
+        self.post_init()
+
+    def post_init(self):
+        rmsd_csv = self.cfg.data.pre_computed.rmsd_csv
+        if self.infuse_rmsd_info and not osp.exists(rmsd_csv):
+            job_info = {"ligand_file": self.data.ligand_file, "file_handle": self.data.file_handle}
+            job_df = pd.DataFrame(job_info)
+            job_df.to_csv(f"/scratch/sx801/cache/rmsd_csv/JOB-{osp.basename(rmsd_csv)}")
+            logging.info("CSV job generation complete, exiting...")
+            exit(0)
 
     def load_data_slices(self):
         # one single data set
@@ -319,6 +329,8 @@ class DummyIMDataset(InMemoryDataset):
             res = self.post_processor(res, idx)
         res = self.try_infuse_rmsd_info(res)
         res = self.try_infuse_linf9_info(res)
+        if self.cfg.training.loss_fn.nonbinder_capped_loss:
+            res.is_nonbinder = res.file_handle.startswith("nonbinders.")
         return res
 
     def try_infuse_linf9_info(self, data):

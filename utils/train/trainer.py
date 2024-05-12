@@ -114,7 +114,7 @@ class Trainer:
             return train_model_path, val_model_path, trained_model_dir
         
         if cfg.model["use_trained_model"]:
-            train_model_path, val_model_path, trained_model_dir = get_pretrained_paths(cfg)
+            train_model_path, val_model_path, trained_model_dir = get_pretrained_paths()
             train_dict = torch.load(train_model_path, map_location=get_device())
             train_dict = fix_model_keys(train_dict)
             train_dict = process_state_dict(train_dict, cfg, self.logger)
@@ -200,6 +200,7 @@ class Trainer:
 
         # ---------------------- Training ----------------------- #
         self.log('start training...')
+        self.t0 = time.time()
 
         shadow_net = optimizer.shadow_model
         val_res = self.evaluator(shadow_net, self.val_loader, self.loss_fn)
@@ -285,8 +286,6 @@ class Trainer:
 
     def eval_step(self, train_loss, epoch: int):
         # ---------------------- Evaluation step: validation, save model, print meta ---------------- #
-        if not self.is_main:
-            return
         this_lr = get_lr(self.optimizer)
         loss_fn = self.loss_fn
         cfg = self.cfg
@@ -364,7 +363,7 @@ class Trainer:
     def train_step(self, model, data_batch):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        # self.t0 = time.time()
+        self.t0 = time.time()
         with torch.autograd.set_detect_anomaly(False):
             model.train()
             if self.cfg.model.mdn.mdn_freeze_bn:
@@ -435,9 +434,6 @@ class Trainer:
                  "lr": reduced_lr}]
 
     def update_df(self, info_dict: dict):
-        if not self.is_main:
-            return
-
         new_df = pd.DataFrame(info_dict, index=[0])
         updated = pd.concat([self.loss_df, new_df])
         updated.to_csv(self.loss_csv, index=False)
@@ -448,9 +444,6 @@ class Trainer:
             self.logger.info(msg)
 
     def log_meta(self, msg):
-        if not self.is_main:
-            return
-
         with open(self.meta_data_path, "a") as f:
             f.write(msg)
         return
@@ -468,7 +461,7 @@ class Trainer:
     @property
     def ds(self):
         if self._ds is None:
-            self._ds, self._ds_args = dataset_from_args(self.cfg, self.logger, return_ds_args=True)
+            self._ds, self._ds_args = dataset_from_args(self.cfg, return_ds_args=True)
         return self._ds
 
     @property
@@ -571,7 +564,8 @@ class Trainer:
         self.log(f"Number of available CPU: {n_cpu_avail}")
         self.log(f"Number of workers used: {num_workers}")
         
-        loader_kw_args = {"shuffle": not self.cfg["debug_mode"], "batch_size": self.cfg["batch_size"]}
+        loader_kw_args = {"shuffle": not self.cfg["debug_mode"], 
+                          "batch_size": self.cfg.training.batch_size}
         if self.cfg.data.over_sample:
             assert not self.cfg.data.dynamic_batch
 
@@ -674,11 +668,9 @@ def remove_extra_keys(data_provider, logger=None, return_extra=False):
     return data_provider
 
 
-def dataset_from_args(args, logger=None, return_ds_args=False):
-    default_kwargs = {'data_root': args["data_root"], 'pre_transform': my_pre_transform,
-                      'record_long_range': True, 'type_3_body': 'B', 'cal_3body_term': True}
-    data_provider_class, _kwargs = data_provider_solver(args, default_kwargs)
-    _kwargs = _add_arg_from_config(_kwargs, args)
+def dataset_from_args(cfg: Config, return_ds_args=False):
+    default_kwargs = {'data_root': cfg.data.data_root}
+    data_provider_class, _kwargs = data_provider_solver(cfg, default_kwargs)
     data_provider = data_provider_class(**_kwargs)
 
     if return_ds_args:

@@ -1,6 +1,7 @@
 data:
   data_provider: protein_embedding[dataset_name=PBind2020OG.diffdock-nmdn.hetero.polar.polar/part_*.pyg]
   data_root: /scratch/sx801/data/im_datasets
+  dataset_names: null
 record_name:
 - sample_id
 - file_handle
