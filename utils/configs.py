@@ -188,6 +188,8 @@ class DataConfig:
         linf9_csv: Optional[str] = None
         rmsd_csv: Optional[str] = None
         rmsd_expansion: Optional[str] = None
+        nrot_norm: bool = False
+        nrot_csv: Optional[str] = None
     pre_computed: PrecomputedConfig = field(default_factory=PrecomputedConfig)
 
     test_name: Optional[str] = None

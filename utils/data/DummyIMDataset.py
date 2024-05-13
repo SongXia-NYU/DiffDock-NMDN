@@ -23,6 +23,7 @@ from utils.data.MyData import MyData
 from utils.data.data_utils import get_lig_natom, get_prot_natom
 
 from utils.data.linf9_score_query import LinF9Query
+from utils.data.nrot_query import NRotQuery
 from utils.data.rmsd_info_query import RMSD_Query
 from utils.utils_functions import floating_type, lazy_property
 
@@ -72,18 +73,27 @@ class DummyIMDataset(InMemoryDataset):
             self.query_key = "file_handle"
             if is_casf_scoring: self.query_key = "pdb"
             self.linf9_query = LinF9Query(cfg, self.query_key)
+        if self.cfg.data.pre_computed.nrot_norm:
+            if cfg.data.pre_computed.nrot_csv == "auto":
+                cfg.data.pre_computed.nrot_csv = f"/scratch/sx801/cache/nrot_csv/{cfg.short_name}/{osp.basename(self.processed_file_names[0]).split('.pyg')[0]}.csv"
+            self.nrot_query = NRotQuery(cfg)
 
         self.cleanup_indices_linf9()
+        self.mark2exit = False
         self.post_init()
 
     def post_init(self):
         rmsd_csv = self.cfg.data.pre_computed.rmsd_csv
-        if self.infuse_rmsd_info and not osp.exists(rmsd_csv):
+        molprop_precompute_needed = self.infuse_rmsd_info and not osp.exists(rmsd_csv)
+        nrot_csv = self.cfg.data.pre_computed.nrot_csv
+        molprop_precompute_needed = molprop_precompute_needed or (self.cfg.data.pre_computed.nrot_norm and not osp.exists(self.cfg.data.pre_computed.nrot_csv))
+        if molprop_precompute_needed:
+            os.makedirs(osp.dirname(nrot_csv), exist_ok=True)
             job_info = {"ligand_file": self.data.ligand_file, "file_handle": self.data.file_handle}
             job_df = pd.DataFrame(job_info)
-            job_df.to_csv(f"/scratch/sx801/cache/rmsd_csv/JOB-{osp.basename(rmsd_csv)}")
+            job_df.to_csv(f"/scratch/sx801/cache/nrot_csv/{self.cfg.short_name}/JOB-{osp.basename(nrot_csv)}")
             logging.info("CSV job generation complete, exiting...")
-            exit(0)
+            self.mark2exit = True
 
     def load_data_slices(self):
         # one single data set
@@ -328,10 +338,19 @@ class DummyIMDataset(InMemoryDataset):
         if process:
             res = self.post_processor(res, idx)
         res = self.try_infuse_rmsd_info(res)
+        res = self.try_infuse_nrot_info(res)
         res = self.try_infuse_linf9_info(res)
         if self.cfg.training.loss_fn.nonbinder_capped_loss:
             res.is_nonbinder = res.file_handle.startswith("nonbinders.")
         return res
+
+    def try_infuse_nrot_info(self, data):
+        if not self.cfg.data.pre_computed.nrot_norm:
+            return data
+        query: str = getattr(data, self.cfg.data.pre_computed.lig_identifier_src)
+        nrot: float = self.nrot_query.query(query)
+        data.nrot = torch.as_tensor([nrot]).type(floating_type)
+        return data
 
     def try_infuse_linf9_info(self, data):
         if not self.infuse_linf9: return data
@@ -377,7 +396,7 @@ class DummyIMDataset(InMemoryDataset):
             ligand_file = data.ligand_file
             if isinstance(ligand_file, list): ligand_file = ligand_file[0]
             query = f"{data.pdb}_{ligand_file}"
-        rmsd_info: float = self.rmsd_query.query_rmsd(query)
+        rmsd_info: float = self.rmsd_query.query(query)
         data.rmsd = torch.as_tensor([rmsd_info]).type(floating_type)
         return data
 
@@ -430,6 +449,7 @@ class DummyIMDataset(InMemoryDataset):
 class AuxPropDataset(DummyIMDataset):
     def __init__(self, data_root, cfg: Config, **kwargs):
         super().__init__(data_root=data_root, cfg=cfg, **kwargs)
+        if self.mark2exit: return
 
         # prepare pdb mapper information which is needed to fetch SASA information
         idx2pdb_mapper = {}

@@ -21,7 +21,7 @@ WARNING: In every rare cases, the atom SASA is negative (e.g. some atoms in ["1z
     I chose to ignore them by calling replacing the negative values with zero since they are very rare.
 """
 
-MSMS_PATH = "/scratch/sx801/scripts/msms_i86_64Linux2_2.6.1"
+MSMS_PATH = "/softwares/msms_i86_64Linux2_2.6.1"
 PDB2XYZR = f"{MSMS_PATH}/pdb_to_xyzr"
 MSMS = f"{MSMS_PATH}/msms.x86_64Linux2.2.6.1"
 

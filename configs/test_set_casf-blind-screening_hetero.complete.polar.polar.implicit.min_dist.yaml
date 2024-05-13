@@ -9,6 +9,7 @@ data:
     prot_embedding_root:
     - /CASF-2016-cyang/polar.esm2_t33_650M_UR50D
     rmsd_csv: /vast/sx801/geometries/CASF-2016-BlindDocking/screening/rmsd_info/chunk_*.csv
+    nrot_csv: auto
 record_name:
 - sample_id
 - file_handle
