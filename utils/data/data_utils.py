@@ -108,7 +108,7 @@ def get_lig_batch(data: Union[HeteroData, Batch]) -> torch.LongTensor:
     # data_batch is a dict when using ESM-GearNet
     if isinstance(data, dict): data = data["ligand"]
 
-    if isinstance(data, HeteroData):
+    if isinstance(data, HeteroData) and not isinstance(data, Batch):
         return torch.as_tensor([0 for __ in range(data["ligand"].R.shape[0])]).to(get_device())
 
     d0 = data.get_example(0)
@@ -123,7 +123,7 @@ def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:
     if isinstance(data, dict): data = data["ligand"]
 
     # single batch, only used during prediction
-    if isinstance(data, HeteroData):
+    if isinstance(data, HeteroData) and not isinstance(data, Batch):
         return 1
 
     d0 = data.get_example(0)

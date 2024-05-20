@@ -21,6 +21,8 @@ class ProteinEmbeddingDS(AuxPropDataset):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if self.mark2exit: return 
+        
         self.prot_embedding_root: List[str] = self.cfg.data.pre_computed.prot_embedding_root
         self._sanity_checked_ids = set()
         self.prot_embedding_mapper = {}

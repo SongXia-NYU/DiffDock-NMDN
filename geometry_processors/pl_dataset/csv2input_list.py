@@ -150,7 +150,7 @@ class MPInfo:
 
         # -------------Cutoff information------------- #
         self.cutoff_pl: float = kwargs.pop("cutoff_pl", 10.)
-        self.cutoff_pp: float = kwargs.pop("cutoff_pp", 10.)
+        self.cutoff_pp: float = kwargs.pop("cutoff_pp", 15.)
         self.cutoff_protein: float = kwargs.pop("cutoff_protein", 10.)
         self.cutoff_ligand: float = kwargs.pop("cutoff_ligand", 10.)
 

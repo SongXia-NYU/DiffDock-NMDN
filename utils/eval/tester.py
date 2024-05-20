@@ -120,7 +120,9 @@ class Tester(TrainedFolder):
         if self._explicit_ds_args is not None:
             return self._explicit_ds_args
         
-        explicit_cfg = OmegaConf.load(self.explicit_ds_config)
+        explicit_cfg: Config = OmegaConf.load(self.explicit_ds_config)
+        if self.cfg.data.pre_computed.rmsd_csv is None:
+            explicit_cfg.data.pre_computed.rmsd_csv = None
         explicit_cfg = OmegaConf.merge(self.cfg, explicit_cfg)
         self._explicit_ds_args = explicit_cfg
         return self._explicit_ds_args
@@ -161,6 +163,7 @@ class Tester(TrainedFolder):
                 this_ds = ds_cls(**ds_args)
                 print(f"testing on {this_ds.processed_file_names}")
                 self.info("dataset: {}".format(this_ds.processed_file_names))
+                if this_ds.mark2exit: continue
                 self.record_name(this_ds)
                 self.eval_ds(this_ds, explicit_split, "test_index")
         else:

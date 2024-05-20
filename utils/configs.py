@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 from glob import glob
 import os.path as osp
 
@@ -151,7 +151,10 @@ class TrainingConfig:
         auto_sol_no_conv: bool = False
         target_nodes: Union[bool, int] = False
         auto_pl_water_ref: bool = False   
-        no_pkd_score: bool = False 
+        no_pkd_score: bool = False
+        nonbinder_capped_loss: bool = False
+        nonbinder_pkd_shift: float = 0.
+        nonbinder_pkd_cap: Optional[float] = None
     loss_fn: LossFnConfig = field(default_factory=LossFnConfig)
 
 @dataclass
@@ -185,6 +188,12 @@ class DataConfig:
         linf9_csv: Optional[str] = None
         rmsd_csv: Optional[str] = None
         rmsd_expansion: Optional[str] = None
+        nrot_norm: bool = False
+        nrot_csv: Optional[str] = None
+        infuse_sasa: bool = False
+        sasa_info_root: Optional[str] = None
+        infuse_atom_sol: bool = False
+        atom_sol_root: Optional[str] = None
     pre_computed: PrecomputedConfig = field(default_factory=PrecomputedConfig)
 
     test_name: Optional[str] = None
@@ -208,7 +217,7 @@ class Config:
 
 schema: Config = OmegaConf.structured(Config)
 
-def read_folder_config(folder_name: str) -> Config:
+def read_folder_config(folder_name: str) -> Tuple[Config, str]:
     config_file = glob(osp.join(folder_name, 'config-*.yaml'))[0]
     args = read_config_file(config_file)
     return args, config_file

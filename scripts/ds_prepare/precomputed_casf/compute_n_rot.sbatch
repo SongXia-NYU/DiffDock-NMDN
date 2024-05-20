@@ -19,9 +19,9 @@ PYTHONPATH="/scratch/sx801/scripts/Protein-NMDN"
 singularity exec  \
     --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \
     --overlay /home/sx801/softwares.sqf \
-    --overlay /vast/sx801/geometries/PDBBind_DiffDock.sqf \
     --overlay /vast/sx801/geometries/CASF-2016-BlindDocking/screening.sqf \
+    --overlay /vast/sx801/geometries/Yaowen_nonbinders.sqf \
     --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \
     /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
     bash -c "source /ext3/env.sh; export PYTHONPATH=$PYTHONPATH; \
-    python pdbbind2020_diffdock_nmdn_mmffrmsd.py --array_id $SLURM_ARRAY_TASK_ID "
+    python compute_n_rot.py"

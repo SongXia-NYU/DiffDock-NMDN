@@ -23,11 +23,12 @@ class HeteroPairedPropLayer(nn.Module):
         lig_metal_cfg.data.pre_computed["rmsd_csv"] = None
         lig_metal_cfg.data.pre_computed["rmsd_expansion"] = None
         self.lig_metal_layer = lig_metal_cls(lig_metal_cfg, edge_name, activation, style)
-
         self.w_lig_metal: float = cfg.model.mdn.w_lig_metal
-
         # It is used during testing: disable this layer to only predict NMDN score
         self.no_pkd_score: bool = self.lig_prot_layer.no_pkd_score
+        self.nrot_norm: bool = cfg.data.pre_computed.nrot_norm
+        if self.nrot_norm:
+            self.rotor_coeff = nn.Parameter(torch.tensor([0.5]))
 
     def forward(self, runtime_vars: dict):
         if self.no_pkd_score:
@@ -47,6 +48,10 @@ class HeteroPairedPropLayer(nn.Module):
             runtime_vars["pair_mol_prop"] = self.w_lig_metal * runtime_vars["pair_mol_prop"] + lig_prot_prop
         else:
             assert runtime_vars["kano_atom_embed"] is None
+
+        if self.nrot_norm:
+            norm = 1. + runtime_vars["data_batch"].nrot.view(-1, 1) * self.rotor_coeff.unsqueeze(-1)
+            runtime_vars["pair_mol_prop"] = runtime_vars["pair_mol_prop"] / norm
 
         if hasattr(data_batch, "linf9_score"):
             runtime_vars["pair_mol_prop"] = runtime_vars["pair_mol_prop"] + data_batch.linf9_score.view(-1, 1)

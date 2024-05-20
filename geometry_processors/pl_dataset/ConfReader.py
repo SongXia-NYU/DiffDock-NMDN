@@ -278,6 +278,14 @@ class PDBReader(ConfReader):
             self._sequence = res
         return self._sequence
 
+    def c_alpha_coords(self):
+        c_alpha = self.prody_parser.select("calpha").toAtomGroup()
+        return c_alpha.getCoords()
+
+    def c_beta_coords(self):
+        c_cbeta = self.prody_parser.select("(name CB and protein) or (name CA and resname GLY)").toAtomGroup()
+        return c_cbeta.getCoords()
+
 
 class PDBHeteroReader(PDBReader):
     """
