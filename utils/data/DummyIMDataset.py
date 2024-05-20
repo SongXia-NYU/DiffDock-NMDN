@@ -20,6 +20,7 @@ from ase.units import Hartree, eV
 from utils.configs import Config
 from utils.data.DataPreprocessor import DataPreprocessor
 from utils.data.MyData import MyData
+from utils.data.atom_sol_query import AtomSolQuery, SasaQuery
 from utils.data.data_utils import get_lig_natom, get_prot_natom
 
 from utils.data.linf9_score_query import LinF9Query
@@ -77,14 +78,19 @@ class DummyIMDataset(InMemoryDataset):
             if cfg.data.pre_computed.nrot_csv == "auto":
                 cfg.data.pre_computed.nrot_csv = f"/scratch/sx801/cache/nrot_csv/{cfg.short_name}/{osp.basename(self.processed_file_names[0]).split('.pyg')[0]}.csv"
             self.nrot_query = NRotQuery(cfg)
-
+        if self.cfg.data.pre_computed.infuse_sasa:
+            self.sasa_query = SasaQuery(self.cfg.data.pre_computed.sasa_info_root)
+        if self.cfg.data.pre_computed.infuse_atom_sol:
+            self.atom_sol_query = AtomSolQuery(self.cfg.data.pre_computed.atom_sol_root)
         self.cleanup_indices_linf9()
+        self.cleanup_indices_sasa()
+        self.cleanup_indices_atomsol()
         self.mark2exit = False
         self.post_init()
 
     def post_init(self):
         rmsd_csv = self.cfg.data.pre_computed.rmsd_csv
-        molprop_precompute_needed = self.infuse_rmsd_info and not osp.exists(rmsd_csv)
+        molprop_precompute_needed = self.infuse_rmsd_info and glob(rmsd_csv) == 0
         nrot_csv = self.cfg.data.pre_computed.nrot_csv
         molprop_precompute_needed = molprop_precompute_needed or (self.cfg.data.pre_computed.nrot_norm and not osp.exists(self.cfg.data.pre_computed.nrot_csv))
         if molprop_precompute_needed:
@@ -340,6 +346,8 @@ class DummyIMDataset(InMemoryDataset):
         res = self.try_infuse_rmsd_info(res)
         res = self.try_infuse_nrot_info(res)
         res = self.try_infuse_linf9_info(res)
+        res = self.try_infuse_sasa(res)
+        res = self.try_infuse_atomsol(res)
         if self.cfg.training.loss_fn.nonbinder_capped_loss:
             res.is_nonbinder = res.file_handle.startswith("nonbinders.")
         return res
@@ -357,6 +365,18 @@ class DummyIMDataset(InMemoryDataset):
         query = getattr(data, self.query_key)
         data.linf9_score = self.linf9_query.query_linf9(query)
         return data
+
+    def try_infuse_sasa(self, data):
+        if not self.cfg.data.pre_computed.infuse_sasa:
+            return data
+        
+        breakpoint()
+
+    def try_infuse_atomsol(self, data):
+        if not self.cfg.data.pre_computed.infuse_atom_sol:
+            return data
+        
+        breakpoint()
     
     def cleanup_indices_linf9(self):
         if not self.infuse_linf9: return
@@ -379,7 +399,58 @@ class DummyIMDataset(InMemoryDataset):
             n_after = len(index_clean)
             logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
             assert n_after > int(0.5 * n_before), \
-                f"More than 50% indices removed due to protein embedding, before: {n_before}, after: {n_after}"
+                f"More than 50% indices removed due to LinF9, before: {n_before}, after: {n_after}"
+            setattr(self, split_name, index_clean)
+        return
+
+    def cleanup_indices_sasa(self):
+        if not self.cfg.data.pre_computed.infuse_sasa:
+            return
+        fl_list = self.data.file_handle
+        for split_name in ["train_index", "val_index", "test_index"]:
+            this_index = getattr(self, split_name)
+            if this_index is None:
+                continue
+            index_clean = []
+            for i in tqdm(this_index, desc="clean_sasa"):
+                i = i.item()
+                fl = fl_list[i]
+                if self.sasa_query.query(fl) is not None:
+                    index_clean.append(i)
+
+            index_clean = torch.as_tensor(index_clean)
+
+            n_before = len(this_index)
+            n_after = len(index_clean)
+            logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
+            assert n_after > int(0.5 * n_before), \
+                f"More than 50% indices removed due to SASA, before: {n_before}, after: {n_after}"
+            setattr(self, split_name, index_clean)
+        return
+
+    def cleanup_indices_atomsol(self):
+        if not self.cfg.data.pre_computed.infuse_atom_sol:
+            return
+        
+        fl_list = self.data.file_handle
+        for split_name in ["train_index", "val_index", "test_index"]:
+            this_index = getattr(self, split_name)
+            if this_index is None:
+                continue
+            index_clean = []
+            for i in tqdm(this_index, desc="clean_sasa"):
+                i = i.item()
+                fl = fl_list[i]
+                if self.atom_sol_query.query(fl) is not None:
+                    index_clean.append(i)
+
+            index_clean = torch.as_tensor(index_clean)
+
+            n_before = len(this_index)
+            n_after = len(index_clean)
+            logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
+            assert n_after > int(0.5 * n_before), \
+                f"More than 50% indices removed due to AtomSol, before: {n_before}, after: {n_after}"
             setattr(self, split_name, index_clean)
         return
     

@@ -1,6 +1,7 @@
 from functools import partial
 import os
 import subprocess
+import tempfile
 from typing import List, Union
 import os.path as osp
 import glob
@@ -84,6 +85,41 @@ class SASASingleCalculator:
     def remove_dir(self):
         cmd = f"rm -r {self.workdir}"
         subprocess.run(cmd, shell=True, check=True)
+
+
+class SASA_PL_Calculator:
+    def __init__(self, prot_pdb: str, lig_sdf: str, save_pkl: str) -> None:
+        self.prot_pdb = prot_pdb
+        self.lig_sdf = lig_sdf
+        self.save_pkl = save_pkl
+    
+    def run(self):
+        if osp.exists(self.save_pkl):
+            return
+        with tempfile.TemporaryDirectory() as workdir:
+            try:
+                os.makedirs(workdir, exist_ok=True)
+                lig_pdb = osp.join(workdir, "lig.pdb")
+                subprocess.run(f"obabel -isdf {self.lig_sdf} -opdb -O {lig_pdb}", shell=True, check=True)
+
+                lig_calc = SASASingleCalculator(lig_pdb, workdir)
+                lig_calc.run()
+
+                pl_pdb = osp.join(workdir, "pl.pdb")
+                subprocess.run(f"cat {lig_pdb} | grep HETATM > {pl_pdb}", shell=True, check=True)
+                subprocess.run(f"cat {self.prot_pdb} | grep ATOM >> {pl_pdb}", shell=True, check=True)
+
+                pl_calc = SASASingleCalculator(pl_pdb, workdir)
+                pl_calc.run()
+
+                lig_df = pd.read_csv(osp.join(workdir, "lig", "lig.area"), sep="\s+").set_index("Atom#")
+                lig_bound_df = pd.read_csv(osp.join(workdir, "pl", "pl.area"), sep="\s+").set_index("Atom#")
+                lig_bound_df = lig_bound_df.rename({"ses_0": "ses_0_bound", "sas_0": "sas_0_bound"}, axis=1)
+                lig_df = lig_df.join(lig_bound_df, how="inner")
+                lig_df.to_pickle(self.save_pkl)
+            except Exception as e:
+                print(e)
+                pass
 
 class CGMartiniSASASummarizer:
     """
