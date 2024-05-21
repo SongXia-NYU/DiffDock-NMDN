@@ -14,6 +14,7 @@ class GeneralMDNLayer(MDNLayer):
         self.h1_name = h1_name
         self.h2_name = h2_name
         super().__init__(mdn_edge_name=mdn_edge_name, **kwargs)
+        self.ignore_pair_batch = False
 
     def unpack_pl_info(self, runtime_vars: dict) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Data, Tensor]:
         data_batch = runtime_vars["data_batch"]
@@ -33,7 +34,7 @@ class GeneralMDNLayer(MDNLayer):
         # h_l_x and h_p_x are the embedding based on edges
         h_1_i = h_1[edge_index[0, :], :]
         h_2_j = h_2[edge_index[1, :], :]
-        pair_batch = get_lig_batch(data_batch)[edge_index[0, :]]
+        pair_batch = get_lig_batch(data_batch)[edge_index[0, :]] if not self.ignore_pair_batch else None
         return h_1, h_2, h_1_i, h_2_j, edge_index, dist, data_batch, pair_batch
 
 

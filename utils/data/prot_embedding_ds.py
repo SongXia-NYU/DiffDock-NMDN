@@ -133,7 +133,7 @@ class ProteinEmbeddingDS(AuxPropDataset):
     
     def check_sanity(self, d: Data):
         # single protein is currently not checked.
-        if hasattr(d, "single_prot_identifier"):
+        if "DeepAccNet" in d.protein_file:
             return True
         
         n_lig = get_lig_natom(d)

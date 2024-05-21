@@ -11,6 +11,7 @@ from torch_geometric.data import Batch, Data
 from typing import Dict, List, Optional, Tuple, Union
 
 from utils.LossFn import mdn_loss_fn
+from utils.data.data_utils import parse_hetero_edge
 
 
 class ProtSingleMDNLayer(GeneralMDNLayer):
@@ -19,15 +20,16 @@ class ProtSingleMDNLayer(GeneralMDNLayer):
         super().__init__("prot_embed", "prot_embed", **kwargs)
         # exlcude close interactions. For example, protprot_exclude_edge==1 means exlcude 1-2 interaction
         # protprot_exclude_edge==2 means exclude 1-2 and 1-3 interaction.
-        self.seq_separation_cutoff: Optional[int] = kwargs["cfg"]["protprot_exclude_edge"]
+        self.seq_separation_cutoff: Optional[int] = kwargs["cfg"].model.mdn["protprot_exclude_edge"]
         self.ltype = ltype
+        self.ignore_pair_batch = True
 
     def overwrite_lig_dim(self) -> Optional[int]:
         return get_prot_dim(self.cfg)
 
     def unpack_pl_info(self, runtime_vars: dict) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Data]:
-        h_1, h_2, h_1_i, h_2_j, pp_edge, pp_dist, data_batch, pair_batch = super().unpack_pl_info(runtime_vars)
-
+        h_1, h_2, h_1_i, h_2_j, pp_edge, pp_dist, data_batch, __ = super().unpack_pl_info(runtime_vars)
+        pair_batch = data_batch["protein"].batch[pp_edge[0, :]]
         # exlcude close interactions. For example, protprot_exclude_edge==1 means exlcude 1-2 interaction
         # protprot_exclude_edge==2 means exclude 1-2 and 1-3 interaction.
         if self.seq_separation_cutoff is not None:
@@ -51,8 +53,9 @@ class ProtSingleMDNLayer(GeneralMDNLayer):
         return h_1, h_2, h_1_i, h_2_j, pp_edge, pp_dist, data_batch, pair_batch
     
     def retrieve_edge_info(self, data_batch: Union[Batch, dict]):
-        bond_type = f"PP_min_dist"
-        pp_dist = getattr(data_batch, f"{bond_type}_oneway_dist")
-        edge_index = getattr(data_batch, f"{bond_type}_oneway_edge_index")
+        bond_type = self.mdn_edge_name
+        edge_store = data_batch[parse_hetero_edge(bond_type)]
+        pp_dist = edge_store.dist
+        edge_index = edge_store.edge_index
         return edge_index, pp_dist
     

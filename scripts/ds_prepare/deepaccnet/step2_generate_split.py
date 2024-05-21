@@ -6,9 +6,9 @@ from typing import Set
 
 # -----------------You need to modify the following variables----------------- #
 # this is the name of the data set
-DS_NAME = "DeepAccNet_test"
+DS_NAME = "DeepAccNet"
 # this is where you save the running results
-SAVE_ROOT = "/scratch/sx801/temp/data"
+SAVE_ROOT = "/scratch/sx801/data/im_datasets/"
 # -----------------------------------------------------------------------------#
 
 SAVE_ROOT = osp.join(SAVE_ROOT, "processed")

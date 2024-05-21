@@ -27,10 +27,6 @@ class SingleProtProcessor:
         prot_dict["R_prot_pad"] = torch.zeros((0, pad_dict["R"].shape[1], 3))
         prot_dict["Z_prot_pad"] = torch.zeros((0, pad_dict["R"].shape[1]))
         prot_dict["N_prot"] = torch.zeros((0, ))
-        sys_dict["protein_file"] = pdb_reader.pdb_file
-        if "pdb" not in self.info.labels:
-            sys_dict["pdb"] = osp.basename(pdb_reader.pdb_file).split("_")[0]
-        sys_dict.update(self.info.labels)
 
         # dummy variables for compatibility
         prot_dict["R"] = torch.zeros((0, 3))
@@ -40,6 +36,10 @@ class SingleProtProcessor:
 
         prot_dict["N_aa"] = pad_dict["N"].shape[0]
         sys_dict = {"protein": prot_dict}
+        sys_dict["protein_file"] = pdb_reader.pdb_file
+        if "pdb" not in self.info.labels:
+            sys_dict["pdb"] = osp.basename(pdb_reader.pdb_file).split("_")[0]
+        sys_dict.update(self.info.labels)
         res = HeteroData(**sys_dict)
 
         # calculate protein intra-residue-residue min distance

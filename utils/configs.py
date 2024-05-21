@@ -13,7 +13,7 @@ class ModelConfig:
     # BN for both bonding and non-bonding
     bonding_type: str = MISSING
     activations: str = MISSING
-    expansion_fn: str = MISSING
+    expansion_fn: Optional[str] = MISSING
     n_feature: int = MISSING
     cutoffs: str = MISSING
     n_atom_embedding: int = 95
@@ -76,7 +76,7 @@ class ModelConfig:
         val_pair_prob_dist_coe: Optional[str] = None
         hist_pp_intra_mdn: bool = False
         nmdn_eval: bool = False
-        compute_external_mdn: bool = True
+        compute_external_mdn: bool = False
     mdn: MDNConfig = field(default_factory=MDNConfig)
 
     @dataclass

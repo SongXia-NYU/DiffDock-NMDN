@@ -74,6 +74,9 @@ class DataPostProcessor:
         if self.proc_in_gpu:
             data = data.to(get_device())
 
+        if "DeepAccNet" in data.protein_file:
+            return data
+
         if isinstance(data, HeteroData):
             return self.proc_hetero(data)
 

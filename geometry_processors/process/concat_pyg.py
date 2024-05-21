@@ -85,16 +85,16 @@ class PyGCollateProcessor:
             data.Z_prot_pad = torch.as_tensor(Z_prot_pad)
 
         def padding_hetero_data(data: HeteroData):
-            n_second_dim = data["protein"].R.shape[1]
+            n_second_dim = data["protein"].R_prot_pad.shape[1]
             if n_second_dim >= self.n_max_pad:
                 return
-            R_prot_pad = data["protein"].R.numpy()
+            R_prot_pad = data["protein"].R_prot_pad.numpy()
             R_prot_pad = np.pad(R_prot_pad, ((0, 0), (0, self.n_max_pad-n_second_dim), (0, 0)), 
                                 constant_values=np.nan)
-            data["protein"].R = torch.as_tensor(R_prot_pad)
-            Z_prot_pad = data["protein"].Z.numpy()
+            data["protein"].R_prot_pad = torch.as_tensor(R_prot_pad)
+            Z_prot_pad = data["protein"].Z_prot_pad.numpy()
             Z_prot_pad = np.pad(Z_prot_pad, ((0, 0), (0, self.n_max_pad - n_second_dim)), constant_values=-1)
-            data["protein"].Z = torch.as_tensor(Z_prot_pad)
+            data["protein"].Z_prot_pad = torch.as_tensor(Z_prot_pad)
             
         for d in self.data_list:
             if isinstance(d, HeteroData):

@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Tuple, Union
 import torch
 from torch import device, dtype
 from torch_geometric.data import Data, HeteroData
@@ -6,6 +6,13 @@ from torch_geometric.data.batch import Batch
 
 from utils.data.MyData import MyData
 from utils.utils_functions import get_device
+
+def parse_hetero_edge(edge_name: str) -> Tuple[str, str, str]:
+    # eg. "(ion, interaction, protein)" -> ("ion", "interaction", "protein")
+    edge_name = edge_name.strip("()")
+    src, interaction, dst = edge_name.split(",")
+    src, interaction, dst = src.strip(), interaction.strip(), dst.strip()
+    return (src, interaction, dst)
 
 # deal with HeteroData
 def infer_device(data: Union[Data, Batch, dict]) -> device:
@@ -17,7 +24,7 @@ def infer_device(data: Union[Data, Batch, dict]) -> device:
         return data.R.device
     
     assert isinstance(d0, HeteroData), data.__class__
-    return data["ligand"].R.device
+    return data["protein"].R.device
 
 # infer floating point precision
 def infer_type(data: Union[Data, Batch]) -> dtype:
@@ -29,7 +36,7 @@ def infer_type(data: Union[Data, Batch]) -> dtype:
         return data.R.dtype
     
     assert isinstance(d0, HeteroData), data.__class__
-    return data["ligand"].R.dtype
+    return data["protein"].R.dtype
 
 def get_prot_coords(data: Union[Data, Batch]) -> torch.Tensor:
     # data_batch is a dict when using ESM-GearNet
@@ -66,6 +73,8 @@ def get_lig_natom(data: Union[Data, Batch]) -> torch.Tensor:
         return data.N
     
     assert isinstance(d0, HeteroData), data.__class__
+    if "ligand" not in data: 
+        return None
     return data["ligand"].N
 
 def get_lig_coords(data: Union[Data, Batch]) -> torch.Tensor:
@@ -116,6 +125,8 @@ def get_lig_batch(data: Union[HeteroData, Batch]) -> torch.LongTensor:
         return data.atom_mol_batch
     
     assert isinstance(d0, HeteroData), data.__class__
+    if "ligand" not in data: 
+        return None
     return data["ligand"].batch
 
 def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:

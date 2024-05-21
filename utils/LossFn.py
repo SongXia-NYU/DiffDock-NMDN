@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch_scatter import scatter_add
 from torch.distributions import Normal
 from utils.configs import Config
-from utils.data.data_utils import get_lig_batch, get_lig_natom, get_lig_z, get_prop, get_sample_id
+from utils.data.data_utils import get_lig_batch, get_lig_natom, get_lig_z, get_prop, get_prot_natom, get_sample_id
 from utils.eval.nmdn import NMDN_Calculator, calculate_probablity
 
 from utils.tags import tags
@@ -226,12 +226,14 @@ class MDNLossFn(BaseLossFn):
         if not loss_detail:
             return total_loss
 
-        detail["n_units"] = get_lig_natom(data_batch).shape[0]
+        natom = get_lig_natom(data_batch)
+        if natom is None: natom = get_prot_natom(data_batch)
+        detail["n_units"] = natom.shape[0]
         pair_prob = calculate_probablity(model_output["pi"], model_output["sigma"], model_output["mu"], model_output["dist"])
         if self.compute_external_mdn:
             detail.update(self.nmdn_calculator(pair_prob, model_output, data_batch))
         pair_prob[torch.where(model_output["dist"] > self.mdn_threshold_eval)[0]] = 0.
-        probx = scatter_add(pair_prob, model_output["C_batch"].to(get_lig_natom(data_batch).device), dim=0, dim_size=detail["n_units"])
+        probx = scatter_add(pair_prob, model_output["C_batch"].to(natom.device), dim=0, dim_size=detail["n_units"])
         detail["PROP_PRED"] = probx
         if "mdn_hist" in model_output: 
             detail["mdn_hist"] = model_output["mdn_hist"].detach().cpu()
