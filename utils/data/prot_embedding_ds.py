@@ -210,8 +210,8 @@ class ProteinEmbeddingFlyDS(ProteinEmbeddingDS):
             print(msg)
             logging.warn(msg)
             seq_list = []
-            assert len(self) < 1_000, "Data set is too large to compute sequence on-the-fly!"
-            for protein_file in self.data.protein_file:
+            # assert len(self) < 1_000, "Data set is too large to compute sequence on-the-fly!"
+            for i, protein_file in enumerate(self.data.protein_file):
                 seq_list.append(pdb2seq(protein_file))
             self.data.seq = seq_list
             self.slices["seq"] = deepcopy(self.slices["protein_file"])
@@ -222,7 +222,10 @@ class ProteinEmbeddingFlyDS(ProteinEmbeddingDS):
         # dummpy mapper to satisfy the super call
         self.prot_embedding_mapper = defaultdict(lambda: torch.as_tensor([0.]))
 
-    def load_prot_embed(self):
+    def load_prot_embed(self, embed_root: str):
+        pass
+
+    def cleanup_indices(self):
         pass
 
     def get(self, idx: int, process=True) -> Data:

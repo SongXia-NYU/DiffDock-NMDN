@@ -77,6 +77,7 @@ class ModelConfig:
         hist_pp_intra_mdn: bool = False
         nmdn_eval: bool = False
         compute_external_mdn: bool = False
+        nmdn_alpha: float = 2.
     mdn: MDNConfig = field(default_factory=MDNConfig)
 
     @dataclass

@@ -142,6 +142,8 @@ def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:
         return data.N.shape[0]
     
     assert isinstance(d0, HeteroData), data.__class__
+    if "ligand" not in data: 
+        return data["protein"].N.shape[0]
     return data["ligand"].N.shape[0]
 
 def data_to_device(data: Union[Batch, Data, dict]):

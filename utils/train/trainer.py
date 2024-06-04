@@ -26,7 +26,7 @@ from Networks.PhysDimeNet import PhysDimeNet
 from utils.DataPrepareUtils import my_pre_transform
 from utils.LossFn import lossfn_factory
 from utils.data.DummyIMDataset import AuxPropDataset, DummyIMDataset, VSDummyIMDataset, VSPointerDummyIMDataset
-from utils.data.data_utils import data_to_device, get_lig_natom
+from utils.data.data_utils import data_to_device, get_lig_natom, get_num_mols
 from utils.data.delta_learning_ds import CASFSoringDeltaLearningDS, CASFDockingDeltaLearningDS, CASFScreeningDeltaLearningDS, PLDeltaLearningDataset
 from utils.data.LargeDataset import LargeDataset
 from utils.Optimizers import EmaAmsGrad
@@ -240,7 +240,7 @@ class Trainer:
             train_loss = 0.
             for batch_num, data in loader:
                 data = data_to_device(data)
-                this_size = get_lig_natom(data).shape[0]
+                this_size = get_num_mols(data)
 
                 try:
                     train_loss += self.train_step(train_model, data_batch=data) * this_size / self.train_size
