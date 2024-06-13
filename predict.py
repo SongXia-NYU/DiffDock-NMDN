@@ -45,7 +45,7 @@ save_csv: Optional[str] = args.save_csv
 if not nmdn_only:
     # solvation properties
     print("Calculating solvation energetics...")
-    atomprop_predictor = EnsPredictor("../physnet-dimenet1/MartiniDock/pretrained/exp_frag20sol_012_active_ALL_2022-05-01_112820/exp_*_cycle_-1_*")
+    atomprop_predictor = EnsPredictor("./data/exp_frag20sol_012_active_ALL_2022-05-01_112820/exp_*_cycle_-1_*")
     sdf_ds = SDFDataset(ligs)
     dl = DataLoader(sdf_ds, batch_size=len(ligs))
     allh_batch = next(iter(dl))
@@ -79,7 +79,7 @@ prot_embed = esm_calculator.embed_from_seq(seq).squeeze(0)[1: -1, :].float()
 
 # Running the NMDN model
 print("Running NMDN model...")
-tester = Tester("data/exp_pl_534_run_2024-01-22_211045__480688")
+tester = Tester("./data/exp_pl_534_run_2024-01-22_211045__480688")
 tester.cfg.no_pkd_score = nmdn_only
 model = tester.model
 model.eval()
