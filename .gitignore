@@ -17,6 +17,9 @@ slurm*
 .vscode
 Design-18-exp.code-workspace
 exp_pl_534_lit-pcba_backup
+/scripts/benchmark-*
+/scripts/lit_pcba_custom_half_n_half
+/scripts/ds_prepare
 
 config-*.txt
 config-*.yaml
