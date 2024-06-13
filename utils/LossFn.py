@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch_scatter import scatter_add
 from torch.distributions import Normal
 from utils.configs import Config
-from utils.data.data_utils import get_lig_batch, get_lig_natom, get_lig_z, get_prop, get_prot_natom, get_sample_id
+from utils.data.data_utils import get_lig_batch, get_lig_natom, get_lig_z, get_prop, get_sample_id
 from utils.eval.nmdn import NMDN_Calculator, calculate_probablity
 
 from utils.tags import tags
@@ -226,14 +226,12 @@ class MDNLossFn(BaseLossFn):
         if not loss_detail:
             return total_loss
 
-        natom = get_lig_natom(data_batch)
-        if natom is None: natom = get_prot_natom(data_batch)
-        detail["n_units"] = natom.shape[0]
+        detail["n_units"] = get_lig_natom(data_batch).shape[0]
         pair_prob = calculate_probablity(model_output["pi"], model_output["sigma"], model_output["mu"], model_output["dist"])
         if self.compute_external_mdn:
             detail.update(self.nmdn_calculator(pair_prob, model_output, data_batch))
         pair_prob[torch.where(model_output["dist"] > self.mdn_threshold_eval)[0]] = 0.
-        probx = scatter_add(pair_prob, model_output["C_batch"].to(natom.device), dim=0, dim_size=detail["n_units"])
+        probx = scatter_add(pair_prob, model_output["C_batch"].to(get_lig_natom(data_batch).device), dim=0, dim_size=detail["n_units"])
         detail["PROP_PRED"] = probx
         if "mdn_hist" in model_output: 
             detail["mdn_hist"] = model_output["mdn_hist"].detach().cpu()
@@ -313,32 +311,24 @@ class LossFn(BaseLossFn):
         if self.loss_metric == "bce":
             return self.binary_classification(model_output, data_batch, is_training, loss_detail, mol_lvl_detail)
 
-        if self.action in ["names", "names_atomic"]:
+        if self.action in ["names", "names_and_QD", "names_atomic"]:
             detail = {}
+
             prop_tgt, prop_pred = self.get_pred_target(model_output, data_batch)
+            coe = 1.
 
             mae_loss = torch.mean(torch.abs(prop_pred - prop_tgt), dim=0, keepdim=True)
             mse_loss = torch.mean((prop_pred - prop_tgt) ** 2, dim=0, keepdim=True)
             rmse_loss = torch.sqrt(mse_loss)
 
             if self.loss_metric == "mae":
-                unit_loss = mae_loss
+                total_loss = torch.sum(coe * mae_loss)
             elif self.loss_metric == "mse":
-                unit_loss = mse_loss
+                total_loss = torch.sum(coe * mse_loss)
             elif self.loss_metric == "rmse":
-                unit_loss = rmse_loss
+                total_loss = torch.sum(coe * rmse_loss)
             else:
                 raise ValueError("Invalid total loss: " + self.loss_metric)
-            loss_cfg = self.cfg.training.loss_fn
-            if loss_cfg.nonbinder_capped_loss:
-                if loss_cfg.nonbinder_pkd_cap is None:
-                    capped_loss = torch.max(prop_pred - prop_tgt - loss_cfg.nonbinder_pkd_shift, torch.zeros_like(prop_pred))
-                else:
-                    # uses a constant as threshold: e.g. 5.0
-                    capped_loss = torch.max(prop_pred - loss_cfg.nonbinder_pkd_cap, torch.zeros_like(prop_pred))
-                unit_loss = torch.where(data_batch.is_nonbinder.view(-1, 1), capped_loss, torch.abs(prop_pred - prop_tgt))
-                unit_loss = torch.mean(unit_loss, dim=0, keepdim=True)
-            batch_loss = unit_loss.sum()
 
             if loss_detail:
                 # record details including MAE, RMSE, Difference, etc..
@@ -349,7 +339,28 @@ class LossFn(BaseLossFn):
                 if mol_lvl_detail:
                     detail["PROP_PRED"] = prop_pred.detach().cpu()
                     detail["PROP_TGT"] = prop_tgt.detach().cpu()
+            else:
+                detail = None
 
+            if self.action == "names_and_QD":
+                if self.loss_metric == "mae":
+                    q_loss = torch.mean(torch.abs(model_output["Q_pred"] - data_batch.Q))
+                    d_loss = torch.mean(torch.abs(model_output["D_pred"] - data_batch.D))
+                else:
+                    q_loss = torch.mean((model_output["Q_pred"] - data_batch.Q) ** 2)
+                    d_loss = torch.mean((model_output["D_pred"] - data_batch.D) ** 2)
+                    if self.loss_metric == "rmse":
+                        q_loss = torch.sqrt(q_loss)
+                        d_loss = torch.sqrt(d_loss)
+                total_loss = total_loss + self.w_q * q_loss + self.w_d * d_loss
+                if loss_detail:
+                    detail["{}_Q".format(self.loss_metric_upper)] = q_loss.item()
+                    detail["{}_D".format(self.loss_metric_upper)] = d_loss.item()
+                    if mol_lvl_detail:
+                        detail["DIFF_Q"] = (model_output["Q_pred"] - data_batch.Q).detach().cpu().view(-1)
+                        detail["DIFF_D"] = (model_output["D_pred"] - data_batch.D).detach().cpu().view(-1)
+
+            if loss_detail:
                 # n_units: number of molecules
                 detail["n_units"] = get_lig_natom(data_batch).shape[0]
                 detail["ATOM_MOL_BATCH"] = get_lig_batch(data_batch).detach().cpu()
@@ -359,9 +370,9 @@ class LossFn(BaseLossFn):
                 for key in ["atom_embedding"]:
                     if key in model_output.keys():
                         detail[key] = model_output[key].detach().cpu()
-                return batch_loss, detail
+                return total_loss, detail
 
-            return batch_loss
+            return total_loss
 
         elif self.action == "E":
             return self.legacy_physnet_cal(model_output, data_batch, is_training, loss_detail, mol_lvl_detail)
@@ -379,7 +390,7 @@ class LossFn(BaseLossFn):
         if "mol_prop_pool" in model_output.keys():
             prop_pred = torch.cat([prop_pred, model_output["mol_prop_pool"]], dim=-1)
 
-        if "pKd" in self.target_names or "pkd" in self.target_names:
+        if "pKd" in self.target_names:
             assert prop_pred.shape[-1] == 1
             prop_pred = prop_pred / pKd2deltaG
         return prop_pred
@@ -394,6 +405,9 @@ class LossFn(BaseLossFn):
         if self.loss_metric not in ["ce"]:
             assert prop_pred.shape[-1] == self.num_targets, f"{prop_pred.shape}, {self.num_targets}"
 
+        if self.mask_atom:
+            mask = data_batch.mask.bool()
+            prop_tgt = prop_tgt[mask, :]
         return prop_tgt, prop_pred
 
     def multi_classification(self, model_output, data, is_training, loss_detail=False, mol_lvl_detail=False):

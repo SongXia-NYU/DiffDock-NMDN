@@ -43,7 +43,7 @@ class SDFDataset(MolFileDataset):
 
     def get_data_reader(self, mol_file):
         from utils.ConfReader import SDFReader
-        return SDFReader(mol_file, addh=True)
+        return SDFReader(mol_file)
     
 class StackedSDFileDataset(Dataset):
     """

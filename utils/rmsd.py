@@ -1,11 +1,8 @@
-from copy import deepcopy
 from rdkit import Chem
-from rdkit.Chem import AddHs
 from rdkit.Chem import RemoveHs, MolToPDBFile, Mol
 import numpy as np
 from spyrmsd import rmsd, molecule
 
-from geometry_processors.misc import ff_optimize
 from utils.utils_functions import TimeoutException, time_limit
 
 
@@ -42,17 +39,3 @@ def symmetry_rmsd_from_mols(mol_ref: Mol, mol_pred: Mol, timeout: int = 9999, **
         print("Timed out! Using non corrected RMSD..")
         computed_rmsd = np.sqrt(((pred_lig_pos[mol_pred_h_masker, :] - ref_lig_pos[mol_ref_h_masker, :]) ** 2).sum(axis=-1).mean(axis=-1)).item()
     return computed_rmsd
-
-def compute_mmff_rmsd(lig: str):
-    suppl = Chem.SDMolSupplier(lig, removeHs=True)
-    mol = suppl[0]
-    if mol is None: 
-        return None
-    mol = AddHs(mol, addCoords=True)
-    dst_mol = deepcopy(mol)
-    try:
-        ff_optimize(dst_mol, [0])
-    except Exception as e:
-        return None
-    rmsd = symmetry_rmsd_from_mols(mol, dst_mol, 1)
-    return rmsd

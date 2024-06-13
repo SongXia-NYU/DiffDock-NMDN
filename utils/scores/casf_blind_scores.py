@@ -5,14 +5,12 @@ from collections import defaultdict
 import os
 import os.path as osp
 from typing import Dict, List, Set
-from omegaconf import OmegaConf
 import pandas as pd
 import numpy as np
 from scipy.stats import pearsonr
 import torch
 import subprocess
 
-from utils.configs import Config
 from utils.eval.TestedFolderReader import TestedFolderReader
 from utils.eval.tester import Tester
 from utils.scores.casf_scores import CASF_ROOT, RANKING_CSV, CasfScoreCalculator, calc_screening_score, get_rank, plot_scatter_info
@@ -121,13 +119,13 @@ class CASFBlindScreenScore(CasfScoreCalculator):
     
     @lazy_property
     def blind_screening_test_folder(self):
-        name = self.screening_ds_cfg.short_name
+        name = self.screening_ds_cfg["short_name"]
         if self.ref: name += "-ref"
         return self.get_folder(name)
     
     @lazy_property
-    def screening_ds_cfg(self) -> Config:
-        test_ds_args: Config = OmegaConf.load(self.score_cfg["screening_config"])
+    def screening_ds_cfg(self) -> dict:
+        test_ds_args: dict = Tester.parse_explicit_ds_args(self.cfg["screening_config"])
         return test_ds_args
 
 
@@ -156,7 +154,7 @@ class CASFBlindDockScore(CasfScoreCalculator):
             if key == "MDN_LOGSUM_DIST2_REFDIST2":
                 self.docking_detailed(score_df)
             max_score_df = score_df.set_index("file_handle").join(self.rmsd_info_df, how="outer").sort_values("score", ascending=False).drop_duplicates(["pdb_id"]).dropna()
-            scores = self.compute_scores(max_score_df, key)
+            scores = self.compute_scores(max_score_df)
             this_scores_df = pd.DataFrame(scores, index=[key])
             out_dfs.append(this_scores_df)
 
@@ -232,7 +230,7 @@ class CASFBlindDockScore(CasfScoreCalculator):
             out_dfs.append(pd.DataFrame(mixed_mdn_score, index=[f"Mixed-{mdn_name}-pKd-sample{n_sample}"]))
         return
 
-    def compute_scores(self, max_score_df: pd.DataFrame, score_name=None) -> dict:
+    def compute_scores(self, max_score_df: pd.DataFrame) -> dict:
         scores: dict = {}
         tgt_df = pd.read_csv(osp.join(CASF_ROOT, "CASF-2016.csv"))[["pdb", "pKd"]].set_index("pdb")
         scoring_df = max_score_df.set_index("pdb_id").join(tgt_df)
@@ -260,10 +258,6 @@ class CASFBlindDockScore(CasfScoreCalculator):
         scores["docking_SR1"] = sr1
         scores["docking_n_success"] = n_success
         scores["docking_n_total"] = n_total
-
-        # draw graphs
-        if score_name is not None:
-            plot_scatter_info(exp, cal, self.save_root, score_name, "Exp vs. Cal")
         return scores
     
     @lazy_property
@@ -272,19 +266,20 @@ class CASFBlindDockScore(CasfScoreCalculator):
     
     @lazy_property
     def blind_docking_test_folder(self):
-        name = self.docking_ds_cfg.short_name
+        name = self.docking_ds_cfg["short_name"]
         if self.ref: name += "-ref"
         return self.get_folder(name)
     
     @lazy_property
-    def docking_ds_cfg(self) -> Config:
-        return OmegaConf.load(self.score_cfg["docking_config"])
+    def docking_ds_cfg(self) -> dict:
+        test_ds_args: dict = Tester.parse_explicit_ds_args(self.cfg["docking_config"])
+        return test_ds_args
     
     @lazy_property
     def rmsd_info_df(self):
-        test_ds_args: Config = self.docking_ds_cfg
-        data_root: str = test_ds_args.data.data_root
-        ds_name = option_solver(test_ds_args.data.data_provider)["dataset_name"].split(".pyg")[0]
+        test_ds_args: dict = self.docking_ds_cfg
+        data_root: str = test_ds_args["data_root"]
+        ds_name = option_solver(test_ds_args["data_provider"])["dataset_name"].split(".pyg")[0]
         rmsd_info_csv: str = osp.join(osp.dirname(data_root), f"{ds_name}.rmsd2crystal.csv")
         rmsd_info_df: pd.DataFrame = pd.read_csv(rmsd_info_csv).set_index("file_handle")
         return rmsd_info_df

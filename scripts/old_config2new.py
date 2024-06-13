@@ -1,6 +1,5 @@
 from glob import glob
 import yaml
-import argparse
 from utils.configs import schema
 
 def old2new(old_cfg_file: str):
@@ -82,9 +81,5 @@ def old2new(old_cfg_file: str):
     with open(outdir, "w") as f:
         yaml.safe_dump(out_dict, f)
 
-parser = argparse.ArgumentParser()
-parser.add_argument("cfgs", nargs="+")
-args = parser.parse_args()
-cfgs = args.cfgs
-for cfg_name in cfgs:
+for cfg_name in glob("/scratch/sx801/scripts/physnet-dimenet1/MartiniDock/pretrained/exp_frag20sol_012_active_ALL_2022-05-01_112820/exp_*_cycle_-1_*/config-*.txt"):
     old2new(cfg_name)

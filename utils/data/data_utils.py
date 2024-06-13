@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Union
 import torch
 from torch import device, dtype
 from torch_geometric.data import Data, HeteroData
@@ -6,13 +6,6 @@ from torch_geometric.data.batch import Batch
 
 from utils.data.MyData import MyData
 from utils.utils_functions import get_device
-
-def parse_hetero_edge(edge_name: str) -> Tuple[str, str, str]:
-    # eg. "(ion, interaction, protein)" -> ("ion", "interaction", "protein")
-    edge_name = edge_name.strip("()")
-    src, interaction, dst = edge_name.split(",")
-    src, interaction, dst = src.strip(), interaction.strip(), dst.strip()
-    return (src, interaction, dst)
 
 # deal with HeteroData
 def infer_device(data: Union[Data, Batch, dict]) -> device:
@@ -24,7 +17,7 @@ def infer_device(data: Union[Data, Batch, dict]) -> device:
         return data.R.device
     
     assert isinstance(d0, HeteroData), data.__class__
-    return data["protein"].R.device
+    return data["ligand"].R.device
 
 # infer floating point precision
 def infer_type(data: Union[Data, Batch]) -> dtype:
@@ -36,7 +29,7 @@ def infer_type(data: Union[Data, Batch]) -> dtype:
         return data.R.dtype
     
     assert isinstance(d0, HeteroData), data.__class__
-    return data["protein"].R.dtype
+    return data["ligand"].R.dtype
 
 def get_prot_coords(data: Union[Data, Batch]) -> torch.Tensor:
     # data_batch is a dict when using ESM-GearNet
@@ -73,8 +66,6 @@ def get_lig_natom(data: Union[Data, Batch]) -> torch.Tensor:
         return data.N
     
     assert isinstance(d0, HeteroData), data.__class__
-    if "ligand" not in data: 
-        return None
     return data["ligand"].N
 
 def get_lig_coords(data: Union[Data, Batch]) -> torch.Tensor:
@@ -117,7 +108,7 @@ def get_lig_batch(data: Union[HeteroData, Batch]) -> torch.LongTensor:
     # data_batch is a dict when using ESM-GearNet
     if isinstance(data, dict): data = data["ligand"]
 
-    if isinstance(data, HeteroData) and not isinstance(data, Batch):
+    if isinstance(data, HeteroData):
         return torch.as_tensor([0 for __ in range(data["ligand"].R.shape[0])]).to(get_device())
 
     d0 = data.get_example(0)
@@ -125,8 +116,6 @@ def get_lig_batch(data: Union[HeteroData, Batch]) -> torch.LongTensor:
         return data.atom_mol_batch
     
     assert isinstance(d0, HeteroData), data.__class__
-    if "ligand" not in data: 
-        return None
     return data["ligand"].batch
 
 def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:
@@ -134,7 +123,7 @@ def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:
     if isinstance(data, dict): data = data["ligand"]
 
     # single batch, only used during prediction
-    if isinstance(data, HeteroData) and not isinstance(data, Batch):
+    if isinstance(data, HeteroData):
         return 1
 
     d0 = data.get_example(0)
@@ -142,8 +131,6 @@ def get_num_mols(data: Union[HeteroData, Batch]) -> torch.LongTensor:
         return data.N.shape[0]
     
     assert isinstance(d0, HeteroData), data.__class__
-    if "ligand" not in data: 
-        return data["protein"].N.shape[0]
     return data["ligand"].N.shape[0]
 
 def data_to_device(data: Union[Batch, Data, dict]):

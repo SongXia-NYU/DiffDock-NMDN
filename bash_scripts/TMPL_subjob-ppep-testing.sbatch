@@ -15,7 +15,7 @@ module purge
             --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
-            export PYTHONPATH=.; \
+            export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python test.py --folder_name {test_folder}  \
             --explicit_ds_config configs/test_set_deep_accnet_test.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
@@ -24,7 +24,7 @@ module purge
              --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
-            export PYTHONPATH=.; \
+            export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python scripts/pp_raw2csv.py \
             --folder_name {test_folder} "
 
@@ -34,7 +34,7 @@ exit
             --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
-            export PYTHONPATH=.; \
+            export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python test.py --folder_name {test_folder}  \
             --explicit_ds_config configs/test_set_pp_test_af22_50_rankeds.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
@@ -43,7 +43,7 @@ exit
             --overlay /scratch/sx801/singularity-envs/KANO-15GB-500K.ext3:ro \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
-            export PYTHONPATH=.; \
+            export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python test.py --folder_name {test_folder}  \
             --explicit_ds_config configs/test_set_pp_test_decoys2_separated.txt \
             --only_predict --use_exist --use_tqdm --compute_external_mdn "
@@ -52,5 +52,5 @@ exit
             --overlay /home/sx801/conda_envs/pth1.12-cuda116-25GB-500K.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; \
-            export PYTHONPATH=.; \
+            export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
             python scripts/batch_cal_ppep_scores.py --folder_name {test_folder} "

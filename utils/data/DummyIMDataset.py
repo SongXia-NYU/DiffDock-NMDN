@@ -20,11 +20,9 @@ from ase.units import Hartree, eV
 from utils.configs import Config
 from utils.data.DataPreprocessor import DataPreprocessor
 from utils.data.MyData import MyData
-from utils.data.atom_sol_query import AtomSolQuery, SasaQuery
 from utils.data.data_utils import get_lig_natom, get_prot_natom
 
 from utils.data.linf9_score_query import LinF9Query
-from utils.data.nrot_query import NRotQuery
 from utils.data.rmsd_info_query import RMSD_Query
 from utils.utils_functions import floating_type, lazy_property
 
@@ -74,32 +72,8 @@ class DummyIMDataset(InMemoryDataset):
             self.query_key = "file_handle"
             if is_casf_scoring: self.query_key = "pdb"
             self.linf9_query = LinF9Query(cfg, self.query_key)
-        if self.cfg.data.pre_computed.nrot_norm:
-            if cfg.data.pre_computed.nrot_csv == "auto":
-                cfg.data.pre_computed.nrot_csv = f"/scratch/sx801/cache/nrot_csv/{cfg.short_name}/{osp.basename(self.processed_file_names[0]).split('.pyg')[0]}.csv"
-            self.nrot_query = NRotQuery(cfg)
-        if self.cfg.data.pre_computed.infuse_sasa:
-            self.sasa_query = SasaQuery(self.cfg.data.pre_computed.sasa_info_root)
-        if self.cfg.data.pre_computed.infuse_atom_sol:
-            self.atom_sol_query = AtomSolQuery(self.cfg.data.pre_computed.atom_sol_root)
-        self.cleanup_indices_linf9()
-        self.cleanup_indices_sasa()
-        self.cleanup_indices_atomsol()
-        self.mark2exit = False
-        self.post_init()
 
-    def post_init(self):
-        rmsd_csv = self.cfg.data.pre_computed.rmsd_csv
-        molprop_precompute_needed = self.infuse_rmsd_info and glob(rmsd_csv) == 0
-        nrot_csv = self.cfg.data.pre_computed.nrot_csv
-        molprop_precompute_needed = molprop_precompute_needed or (self.cfg.data.pre_computed.nrot_norm and not osp.exists(self.cfg.data.pre_computed.nrot_csv))
-        if molprop_precompute_needed:
-            os.makedirs(osp.dirname(nrot_csv), exist_ok=True)
-            job_info = {"ligand_file": self.data.ligand_file, "file_handle": self.data.file_handle}
-            job_df = pd.DataFrame(job_info)
-            job_df.to_csv(f"/scratch/sx801/cache/nrot_csv/{self.cfg.short_name}/JOB-{osp.basename(nrot_csv)}")
-            logging.info("CSV job generation complete, exiting...")
-            self.mark2exit = True
+        self.cleanup_indices_linf9()
 
     def load_data_slices(self):
         # one single data set
@@ -344,39 +318,14 @@ class DummyIMDataset(InMemoryDataset):
         if process:
             res = self.post_processor(res, idx)
         res = self.try_infuse_rmsd_info(res)
-        res = self.try_infuse_nrot_info(res)
         res = self.try_infuse_linf9_info(res)
-        res = self.try_infuse_sasa(res)
-        res = self.try_infuse_atomsol(res)
-        if self.cfg.training.loss_fn.nonbinder_capped_loss:
-            res.is_nonbinder = res.file_handle.startswith("nonbinders.")
         return res
-
-    def try_infuse_nrot_info(self, data):
-        if not self.cfg.data.pre_computed.nrot_norm:
-            return data
-        query: str = getattr(data, self.cfg.data.pre_computed.lig_identifier_src)
-        nrot: float = self.nrot_query.query(query)
-        data.nrot = torch.as_tensor([nrot]).type(floating_type)
-        return data
 
     def try_infuse_linf9_info(self, data):
         if not self.infuse_linf9: return data
         query = getattr(data, self.query_key)
         data.linf9_score = self.linf9_query.query_linf9(query)
         return data
-
-    def try_infuse_sasa(self, data):
-        if not self.cfg.data.pre_computed.infuse_sasa:
-            return data
-        
-        breakpoint()
-
-    def try_infuse_atomsol(self, data):
-        if not self.cfg.data.pre_computed.infuse_atom_sol:
-            return data
-        
-        breakpoint()
     
     def cleanup_indices_linf9(self):
         if not self.infuse_linf9: return
@@ -399,58 +348,7 @@ class DummyIMDataset(InMemoryDataset):
             n_after = len(index_clean)
             logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
             assert n_after > int(0.5 * n_before), \
-                f"More than 50% indices removed due to LinF9, before: {n_before}, after: {n_after}"
-            setattr(self, split_name, index_clean)
-        return
-
-    def cleanup_indices_sasa(self):
-        if not self.cfg.data.pre_computed.infuse_sasa:
-            return
-        fl_list = self.data.file_handle
-        for split_name in ["train_index", "val_index", "test_index"]:
-            this_index = getattr(self, split_name)
-            if this_index is None:
-                continue
-            index_clean = []
-            for i in tqdm(this_index, desc="clean_sasa"):
-                i = i.item()
-                fl = fl_list[i]
-                if self.sasa_query.query(fl) is not None:
-                    index_clean.append(i)
-
-            index_clean = torch.as_tensor(index_clean)
-
-            n_before = len(this_index)
-            n_after = len(index_clean)
-            logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
-            assert n_after > int(0.5 * n_before), \
-                f"More than 50% indices removed due to SASA, before: {n_before}, after: {n_after}"
-            setattr(self, split_name, index_clean)
-        return
-
-    def cleanup_indices_atomsol(self):
-        if not self.cfg.data.pre_computed.infuse_atom_sol:
-            return
-        
-        fl_list = self.data.file_handle
-        for split_name in ["train_index", "val_index", "test_index"]:
-            this_index = getattr(self, split_name)
-            if this_index is None:
-                continue
-            index_clean = []
-            for i in tqdm(this_index, desc="clean_sasa"):
-                i = i.item()
-                fl = fl_list[i]
-                if self.atom_sol_query.query(fl) is not None:
-                    index_clean.append(i)
-
-            index_clean = torch.as_tensor(index_clean)
-
-            n_before = len(this_index)
-            n_after = len(index_clean)
-            logging.info(f"Cleaning {split_name}: before: {n_before}, after: {n_after}")
-            assert n_after > int(0.5 * n_before), \
-                f"More than 50% indices removed due to AtomSol, before: {n_before}, after: {n_after}"
+                f"More than 50% indices removed due to protein embedding, before: {n_before}, after: {n_after}"
             setattr(self, split_name, index_clean)
         return
     
@@ -467,7 +365,7 @@ class DummyIMDataset(InMemoryDataset):
             ligand_file = data.ligand_file
             if isinstance(ligand_file, list): ligand_file = ligand_file[0]
             query = f"{data.pdb}_{ligand_file}"
-        rmsd_info: float = self.rmsd_query.query(query)
+        rmsd_info: float = self.rmsd_query.query_rmsd(query)
         data.rmsd = torch.as_tensor([rmsd_info]).type(floating_type)
         return data
 
@@ -520,7 +418,6 @@ class DummyIMDataset(InMemoryDataset):
 class AuxPropDataset(DummyIMDataset):
     def __init__(self, data_root, cfg: Config, **kwargs):
         super().__init__(data_root=data_root, cfg=cfg, **kwargs)
-        if self.mark2exit: return
 
         # prepare pdb mapper information which is needed to fetch SASA information
         idx2pdb_mapper = {}

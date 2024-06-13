@@ -63,13 +63,13 @@ class CASF_JobSubmitter(TestJobSubmitter):
         ds_name = ds_name.replace("$", "")
         if "test_name" in self.ds_args:
             ds_name = self.ds_args["test_name"]
-        scoring_config = f"configs/test_set_casf-scoring_{ds_name}.yaml"
+        scoring_config = f"configs/test_set_casf-scoring_{ds_name}.txt"
         assert osp.exists(scoring_config), scoring_config
         if self.ref:
             ds_name += "-ref"
-        docking_config = f"configs/test_set_casf-docking_{ds_name}.yaml"
+        docking_config = f"configs/test_set_casf-docking_{ds_name}.txt"
         assert osp.exists(docking_config), docking_config
-        screening_config = f"configs/test_set_casf-screening_{ds_name}.yaml"
+        screening_config = f"configs/test_set_casf-screening_{ds_name}.txt"
 
         casf_extra = ""
         if self.ref:

@@ -1,5 +1,5 @@
 import time
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import torch
@@ -9,21 +9,11 @@ from scipy.spatial import Voronoi
 from torch_geometric.data import Data
 from tqdm import tqdm
 import os.path as osp
-import rdkit
-from rdkit import Chem
-from rdkit.Chem.rdMolDescriptors import CalcNumRotatableBonds
 
 from utils.utils_functions import cal_edge, floating_type
 
 hartree2ev = Hartree / eV
 
-def n_rotatable_bonds(lig_file: str) -> Optional[int]:
-    suppl = Chem.SDMolSupplier(lig_file, removeHs=False)
-    mol = suppl[0]
-    if mol is None: 
-        return None
-    mol = Chem.AddHs(mol, addCoords=True)
-    return CalcNumRotatableBonds(mol)
 
 def pairwise_dist(X: torch.Tensor, Y: torch.Tensor):
     # Based on: https://medium.com/@souravdey/l2-distance-matrix-vectorization-trick-26aa3247ac6c

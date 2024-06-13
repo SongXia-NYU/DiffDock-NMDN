@@ -14,7 +14,7 @@ module purge
 
 if [ "$SLURM_ARRAY_TASK_ID" == "" ]; then SLURM_ARRAY_TASK_ID=$1; fi
 
-PYTHONPATH="/scratch/sx801/scripts/Protein-NMDN"
+PYTHONPATH="/scratch/sx801/scripts/DiffDock-NMDN"
 
 singularity exec  \
     --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \

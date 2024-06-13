@@ -32,6 +32,13 @@ pip install tensorboard
 pip install spyrmsd
 ```
 
+# Download pretrained models
+
+```bash
+wget https://zenodo.org/records/11111827/files/data.tar.gz?download=1 -O data.tar.gz
+tar xvf data.tar.gz
+```
+
 # Run NMDN model
 To run prediction, you need the protein structure `PROTEIN.pdb` and docked ligand poses `LIG1.sdf`, `LIG2.sdf`, ...
 
@@ -42,7 +49,7 @@ python predict.py --prot PROTEIN.pdb --ligs LIG1.sdf LIG2.sdf ...
 For example:
 
 ```bash
-python predict.py --prot example/1a30_protein.pdb --ligs example/1a30_ligand.sdf example/1bcu_ligand.sdf
+python predict.py --prot data/1e66_protein.pdb --ligs data/1e66_1a30/rank1_confidence-0.63.sdf data/1e66_1a30/rank5_confidence-0.94.sdf
 ```
 
 You will get prediction of the NMDN score and pKd score for each protein-ligand pairs. If you only want to predict the NMDN score, you can add the `--nmdn_only` argument.

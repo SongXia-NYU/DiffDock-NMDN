@@ -17,7 +17,6 @@ class NMDN_Calculator:
         mdn_cfg = cfg.model.mdn
         self.mdn_threshold_train = mdn_cfg["mdn_threshold_train"]
         self.mdn_threshold_eval = mdn_cfg["mdn_threshold_eval"]
-        self.alpha: float = mdn_cfg.nmdn_alpha
 
         self.requested_score_names: Set[str] = requested_score_names
 
@@ -31,13 +30,13 @@ class NMDN_Calculator:
         pair_batch = model_output["C_batch"].to(infer_device(data_batch))
         n_mols = get_num_mols(data_batch)
 
-        pair_lvl_scores: Dict[str, Tensor] = self.compute_pair_lvl_scores(pair_prob, model_output)
+        pair_lvl_scores: Dict[str, Tensor] = self.compute_pair_lvl_scores(pair_prob, model_output, data_batch)
         mol_lvl_scores: Dict[str, Tensor] = {}
         for key in pair_lvl_scores:
             mol_lvl_scores[key] = scatter_add(pair_lvl_scores[key], pair_batch, dim=0, dim_size=n_mols)
         return mol_lvl_scores
     
-    def compute_pair_lvl_scores(self, pair_prob: torch.Tensor, model_output: dict) -> Dict[str, Tensor]:
+    def compute_pair_lvl_scores(self, pair_prob: torch.Tensor, model_output: dict, data_batch: Data) -> Dict[str, Tensor]:
         out_dict = {}
         # only pairwise probability within a threshold is used for evaluation
         cutoff_mask: BoolTensor = (model_output["dist"] > self.mdn_threshold_eval).view(-1)
@@ -45,7 +44,7 @@ class NMDN_Calculator:
         # pair-wise probability
         pair_prob_zeroed = torch.where(cutoff_mask, torch.zeros_like(pair_prob), pair_prob)
         # the square of distance for normalization purposes
-        dist_sq: torch.Tensor = (model_output["dist"] ** self.alpha).view(-1)
+        dist_sq: torch.Tensor = (model_output["dist"] ** 2).view(-1)
         if self.to_compute("MDN_SUM_DIST2"):
             sum_dist2_prob: torch.Tensor = pair_prob_zeroed/dist_sq
             out_dict["MDN_SUM_DIST2"] = sum_dist2_prob
@@ -60,7 +59,7 @@ class NMDN_Calculator:
             pair_prob_ref = calculate_probablity(model_output["pi"], model_output["sigma"], model_output["mu"], ref_dist_tensor)
             pair_prob_ref[cutoff_mask] = 0.
             pair_prob_ref_mean.append(pair_prob_ref)
-            pair_prob_refdist2_mean.append(pair_prob_ref / (ref_dist ** self.alpha))
+            pair_prob_refdist2_mean.append(pair_prob_ref / (ref_dist ** 2))
         # previous reference computation method: probablity - reference probeblity
         if self.to_compute("MDN_SUM_REF"):
             sum_prob_ref = pair_prob_zeroed - pair_prob_ref_mean[-1]

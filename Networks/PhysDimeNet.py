@@ -18,7 +18,7 @@ from Networks.SharedLayers.MyMemPooling import MyMemPooling
 from utils.BesselCalculator import bessel_expansion_raw
 from utils.BesselCalculatorFast import BesselCalculator
 from utils.configs import Config, ModelConfig
-from utils.data.data_utils import get_lig_natom, get_lig_z, get_lig_batch, get_lig_coords, get_prot_natom, parse_hetero_edge
+from utils.data.data_utils import get_lig_natom, get_lig_z, get_lig_batch, get_lig_coords
 from utils.tags import tags
 from torch_geometric.data import Dataset, Batch, HeteroData
 from utils.time_meta import record_data
@@ -265,7 +265,6 @@ class PhysDimeNet(nn.Module):
             mol_prop = scatter(reduce='sum', src=atom_prop, index=atom_mol_batch, dim=0)
         else:
             N = get_lig_natom(data)
-            if N is None: N = get_prot_natom(data)
             # set it to zero and worry about it later
             mol_prop = torch.zeros_like(N)
 
@@ -362,21 +361,18 @@ class PhysDimeNet(nn.Module):
         """
         Get the initial embeddings as the model input
         """
+        mji = None
         '''
         mji: edge mol_lvl_detail
         vi:  node mol_lvl_detail
         '''
-        runtime_vars = {"mji": None, "data_batch": data_batch}
+        Z = get_lig_z(data_batch)
+        vi_init = self.embedding_layer(Z)
+        runtime_vars = {"vi": vi_init, "mji": mji, "data_batch": data_batch}
         if self.cfg.data.pre_computed["prot_embedding_root"] is not None:
             runtime_vars["prot_embed"] = data_batch.prot_embed
             runtime_vars["prot_embed_chain1"] = getattr(data_batch, "prot_embed_chain1", None)
             runtime_vars["prot_embed_chain2"] = getattr(data_batch, "prot_embed_chain2", None)
-        if "P" not in self.main_module_str:
-            return runtime_vars
-        
-        Z = get_lig_z(data_batch)
-        vi_init = self.embedding_layer(Z)
-        runtime_vars["vi"] = vi_init
         return runtime_vars
 
     def gather_edge_info(self, data_batch: Union[Batch, dict]):
@@ -386,9 +382,6 @@ class PhysDimeNet(nn.Module):
         bonding_str is a string representing the bond type. I use B for non-bonding, N for bonding, BN for combined non-bonding and bonding. 
             P for protein-protein, L for ligand-ligand, PL for protein-ligand
         """
-        if "P" not in self.main_module_str:
-            return {}, {}
-        
         edge_index_getter: Dict[str, torch.LongTensor] = {}
         if isinstance(data_batch, dict):
             # data_batch is a dict when using ESM-GearNet
@@ -448,8 +441,6 @@ class PhysDimeNet(nn.Module):
         '''
         Post modules: Coulomb or D3 Dispersion layers
         '''
-        if len(self.post_module_str) == 0: return atom_prop
-
         Z = get_lig_z(data_batch)
         for i, (module_str, bonding_str) in enumerate(zip(self.post_module_str, self.post_bonding_str)):
             this_edge_index = edge_index_getter[bonding_str]
@@ -477,8 +468,6 @@ class PhysDimeNet(nn.Module):
         return atom_prop
     
     def gather_expansion_info(self, data_batch: Union[Batch, dict], edge_index_getter: dict, msg_edge_index_getter: dict):
-        if "P" not in self.main_module_str:
-            return {}
         def compute_dist(data_batch: Union[Batch, dict], bond_type: str, edge_index_getter: dict):
             if isinstance(data_batch, dict):
                 data_batch = data_batch["ligand"]
@@ -627,3 +616,10 @@ class PhysDimeNet(nn.Module):
             if prop.dtype == torch.float64:
                 setattr(data_batch, key, prop.type(floating_type))
         return maybe_data_batch
+
+def parse_hetero_edge(edge_name: str) -> Tuple[str, str, str]:
+    # eg. "(ion, interaction, protein)" -> ("ion", "interaction", "protein")
+    edge_name = edge_name.strip("()")
+    src, interaction, dst = edge_name.split(",")
+    src, interaction, dst = src.strip(), interaction.strip(), dst.strip()
+    return (src, interaction, dst)

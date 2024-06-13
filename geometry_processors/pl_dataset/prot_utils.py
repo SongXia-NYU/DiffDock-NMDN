@@ -84,7 +84,7 @@ def pp_min_dist_matrix_vec(prot_pos):
     min_dist = dists.min(axis=-1)[0].min(axis=-2)[0]
     return min_dist
 
-def pp_min_dist_matrix_vec_mem(prot1_pos: Union[np.ndarray, th.Tensor], prot2_pos: Union[np.ndarray, th.Tensor] = None, return_max=False) -> th.Tensor:
+def pp_min_dist_matrix_vec_mem(prot1_pos: Union[np.ndarray, th.Tensor], prot2_pos: Union[np.ndarray, th.Tensor] = None) -> th.Tensor:
     """
     WINNER!!!
     
@@ -106,19 +106,13 @@ def pp_min_dist_matrix_vec_mem(prot1_pos: Union[np.ndarray, th.Tensor], prot2_po
 
     n_aas = prot1_pos.shape[0]
     pp_min_martix = []
-    pp_max_matrix = []
     for aa_id in range(n_aas):
         selec_aa = prot1_pos[aa_id, :, :]
         selec_pp = pl_min_dist_matrix(selec_aa, prot2_pos)
         this_pp_min = selec_pp.min(dim=1)[0]
         pp_min_martix.append(this_pp_min)
-        if return_max:
-            # for corrent .max() behaviour
-            selec_pp[selec_pp > INF_DIST -1] = -INF_DIST
-            pp_max_matrix.append(selec_pp.max(dim=1)[0])
     # output dimension should be [N_aa_prot1, N_aa_prot2]
     out = th.concat(pp_min_martix, dim=0)
-    if return_max: out = (out, th.concat(pp_max_matrix, dim=0))
     return out
 
 def pp_min_dist_naive(atomgroup):

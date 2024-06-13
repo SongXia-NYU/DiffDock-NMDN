@@ -26,7 +26,7 @@ from torch_scatter import scatter
 # Constants:
 
 # Coulomb’s constant in eV A and e
-from utils.configs import Config, ModelConfig
+from utils.configs import Config
 
 k_e = 14.399645352
 # CPU device, part of the functions are calculated faster in cpu
@@ -705,6 +705,291 @@ def non_collapsing_folder(folder_prefix: str, identify="_run_"):
             print(f"Folder exists, trying to wait {rd_sleep} seconds")
             time.sleep(rd_sleep)
 
+
+def add_parser_arguments(parser: argparse.ArgumentParser):
+    """
+    add arguments to parser
+    :param parser:
+    :return: added parser
+    """
+    #--------------------------------Deep Learning Model Arguments--------------------------------#
+    # Physnet layers
+    parser.add_argument("--n_atom_embedding", type=int, default=95)
+    parser.add_argument('--modules', type=str, help="eg: D P D P D P, D for DimeNet and P for PhysNet")
+    parser.add_argument('--bonding_type', type=str, 
+        help="eg: B N B N B N, B for bonding-edge, N for non-bonding edge, L for long-range interaction and " + \
+        "BN for both bonding and non-bonding")
+    parser.add_argument('--n_feature', type=int)
+    parser.add_argument('--n_phys_atomic_res', type=int)
+    parser.add_argument('--n_phys_interaction_res', type=int)
+    parser.add_argument('--n_phys_output_res', type=int)
+    parser.add_argument("--n_output", type=int)
+    parser.add_argument("--trioMPW", action="store_true", 
+        help="use three linear layers when performing message passing for PP, PL, LL")
+    parser.add_argument("--trioMPW_zeroW", action="store_true", 
+        help="zero the weights for PL and PP, only LL is randomly initialized")
+    parser.add_argument("--preserve_prot_embed", action="store_true", 
+        help="Zero_ the weights during initialization to preserve protein embedding at first step")
+    # MDN layers
+    parser.add_argument('--n_mdn_hidden', type=int, default=None)
+    parser.add_argument("--n_mdn_lig_metal_hidden", type=int, default=None)
+    parser.add_argument("--n_mdnprop_hidden", type=int, default=None)
+    parser.add_argument("--n_mdn_layers", type=int, help="Number of MLP layer in the MDN layer", default=1)
+    parser.add_argument("--n_mdnprop_layers", type=int, default=1)
+    parser.add_argument("--cross_mdn_prop_name", default="pair_prob_transformed", help="pair_prob_transformed | pair_nll_transformed")
+    parser.add_argument("--cross_mdn_behaviour", default="pair_mean", help="pair_mean | mol_sum_mean")
+    parser.add_argument("--mdn_threshold_train", type=float, default=None)
+    parser.add_argument("--mdn_threshold_eval", type=float, default=None)
+    parser.add_argument("--mdn_threshold_prop", type=float, default=None)
+    parser.add_argument("--mdn_voronoi_edge", action="store_true")
+    parser.add_argument("--mdn_dist_expansion", default=None, help="the distance expansion function for MDN paired properties prediction")
+    parser.add_argument("--pair_prop_dist_coe", default=None, type=str, help="regularize pair property by pair distance: inverse | inverse_square")
+    parser.add_argument("--martini2aa_action", default="replace_with_aa_feats", help="replace_with_aa_feats | ignore")
+    parser.add_argument("--n_mdn_gauss", type=int, default=10, help="Number of Gaussians during MDN calculation.")
+    parser.add_argument("--pkd_phys_terms", type=str, default=None, help="Physical terms when predicting pKd. See MPNNPairedPropLayer.register_pkd_phys_terms()")
+    parser.add_argument("--pkd_phys_concat", action="store_true")
+    parser.add_argument("--pkd_phys_norm", type=float, default=None)
+    parser.add_argument("--auxprop_nmdn_name", default="MDN_LOGSUM", type=str, help="Used in NMDN_AuxPropLayer")
+    parser.add_argument("--auxprop_nmdn_compute_ref", action="store_true")
+    parser.add_argument("--protprot_exclude_edge", type=int, default=None, help="Exclude close interactions.")
+    parser.add_argument("--n_paired_mdn_readout", type=int, default=1)
+    parser.add_argument("--n_paired_mdn_readout_hidden", type=int, default=None)
+    parser.add_argument("--metal_atom_embed_path", type=str, default=None)
+    parser.add_argument("--metal_atom_embed_slice", type=int, default=None)
+    parser.add_argument("--w_lig_metal", default=1.0, type=float)
+    # Dimenet layers
+    parser.add_argument('--n_dime_before_residual', type=int)
+    parser.add_argument('--n_dime_after_residual', type=int)
+    parser.add_argument('--n_output_dense', type=int)
+    parser.add_argument('--n_bi_linear', type=int)
+    # Normalization layers
+    parser.add_argument('--normalize', type=str, default="True")
+    parser.add_argument('--shared_normalize_param', type=str, default="False")
+    parser.add_argument("--uni_task_ss", type=str, default="False", help="Universal scale/shift for all tasks.")
+    parser.add_argument("--train_shift", type=str, default="True")
+    # KANO
+    parser.add_argument("--kano_ckpt", type=str, default=None)
+    # ComENet
+    parser.add_argument("--comenet_cutoff", default=8.0, type=float)
+    parser.add_argument("--comenet_num_layers", default=4, type=int)
+    parser.add_argument("--comenet_num_radial", default=3, type=int)
+    parser.add_argument("--comenet_num_spherical", default=2, type=int)
+    parser.add_argument("--comenet_num_output_layers", default=3, type=int)
+    # Equiformer V2
+    parser.add_argument("--equiformer_v2_ckpt", type=str, default=None)
+    parser.add_argument("--equiformer_v2_for_energy", action="store_true")
+    parser.add_argument("--equiformer_v2_narrow_embed", action="store_true")
+    # Misc
+    parser.add_argument('--activations', type=str, help='swish | ssp')
+    parser.add_argument('--expansion_fn', type=str, default=None)
+    parser.add_argument('--restrain_non_bond_pred', type=str, default="False")
+    parser.add_argument('--uncertainty_modify', type=str, default='none',
+        help="none | concreteDropoutModule | concreteDropoutOutput | swag_${start}_${freq}")
+    parser.add_argument('--coulomb_charge_correct', type=str, default="False",
+        help='calculate charge correction when calculation Coulomb interaction')
+    parser.add_argument("--pooling", type=str, default="sum", help="sum | mem_pooling[heads=?,num_clusters=?,tau=?,n_output=?]")
+    parser.add_argument("--batch_norm", type=str, default="False")
+    parser.add_argument("--dropout", type=str, default="False")
+    parser.add_argument("--requires_atom_embedding", type=str, default="False")
+    parser.add_argument("--lin_last", type=str, default="False", help="vi: scale, shift -> sum -> lin")
+    parser.add_argument("--last_lin_bias", type=str, default="False")
+    parser.add_argument("--acsf", type=int, default=None, help="The dimension of ACSF embedding. By default, ACSF is disabled.")
+    parser.add_argument("--mask_z", type=str, default="False")
+    parser.add_argument("--ext_atom_features", type=str, default=None)
+    #----------------------------------------------------------------------------------------------#
+
+    #--------------------------------------Training Arguments--------------------------------------#
+    # Training: optimizations
+    parser.add_argument('--optimizer', type=str, default='emaAms_0.999', help="emaAms_${ema} | sgd")
+    parser.add_argument('--ema_decay', type=float, help='Deprecated, use --optimizer option instead')
+    parser.add_argument('--max_norm', type=float)
+    parser.add_argument("--error_if_nonfinite", action="store_true", help="for torch.nn.utils.clip_grad_norm_")
+    parser.add_argument("--swa_use_buffers", action="store_true")
+    parser.add_argument("--swa_start_step", type=int, default=0, help="The step to enable SWA. By default it will be enabled at the beginning.")
+    # Training: loss functions
+    parser.add_argument("--loss_metric", type=str, default="mae", help="mae|rmse|mse|ce|bce|evidential|mdn|mdn_mae")
+    parser.add_argument('--l2lambda', type=float)
+    parser.add_argument('--nh_lambda', type=float)
+    parser.add_argument('--force_weight', type=float)
+    parser.add_argument('--charge_weight', type=float)
+    parser.add_argument('--dipole_weight', type=float)
+    parser.add_argument("--action", type=str, default="E", 
+        help="name of target, must be consistent with name in data_provider, default E is for PhysNet energy")
+    parser.add_argument("--target_names", type=str, action="append", default=[],
+        help="For Frag20-solvation: gasEnergy | watEnergy | octEnergy | CalcSol | OctSol")
+    parser.add_argument("--regression_ignore_nan", action="store_true", help="Ignore NaNs when "
+        "computing regression loss. It is used when only part of training examples has the prperty."
+        "For example, on BioLip, only 40k PL pairs have experimental pKd.")
+    parser.add_argument("--auto_sol", type=str, default="False",
+        help="Automatic calculate solvation energy by subtracting solvent energy by gas energy.")
+    parser.add_argument("--auto_sol_no_conv", action="store_true", help="do not convert unit")
+    parser.add_argument("--target_nodes", type=str, default="False",
+        help="Add extra nodes (fake atoms) for each target, the result of each target will be the aggregated repr of each node.")
+    parser.add_argument("--w_mdn", default=1., type=float, help="When using mixed MDN layer with regression layer")
+    parser.add_argument("--w_regression", default=1., type=float, help="When using mixed MDN layer with regression layer")
+    parser.add_argument("--w_cross_mdn_pkd", default=0., type=float, help="aux task of combining MDN and pKd loss.")
+    parser.add_argument("--z_loss_weight", type=float, default=0)
+    parser.add_argument("--keep", type=str, default=None)
+    parser.add_argument("--flex_sol", action="store_true",
+        help="Multi-task FT on experimental datasets: use MT when available, otherwise use st")
+    parser.add_argument("--ligand_only", action="store_true", help="Only retain ligand atoms")
+    parser.add_argument("--lamda_sol", default=None, type=float)
+    parser.add_argument("--auto_pl_water_ref", action="store_true")
+    parser.add_argument("--wat_ref_file", default=None, help="calculation results for water reference energy.")
+    parser.add_argument("--mdn_w_lig_atom_types", type=float, default=0.)
+    parser.add_argument("--mdn_w_prot_atom_types", type=float, default=0.)
+    parser.add_argument("--mdn_w_lig_atom_props", type=float, default=0.)
+    parser.add_argument("--mdn_w_prot_sasa", type=float, default=0.)
+    parser.add_argument("--delta_learning_pkd", action="store_true", help="Delta machine learning on pKd prediction, ST")
+    parser.add_argument("--mask_atom", action="store_true", help="Only predict part of the atomic properties")
+    # Training: learning rate schedule
+    parser.add_argument('--learning_rate', type=float)
+    parser.add_argument('--scheduler', type=str, default='StepLR', help="StepLR | ReduceLROnPlateau")
+    parser.add_argument('--decay_steps', type=int)
+    parser.add_argument('--decay_rate', type=float)
+    parser.add_argument('--warm_up_steps', type=int, help="Steps to warm up")
+    # Training: finetuning/transfer learning
+    parser.add_argument('--use_trained_model', type=str, default="False")
+    parser.add_argument("--ft_discard_training_model", action="store_true", 
+        help="Use shadow model (best model) to initialize both training and shadow model." + \
+        "This is helpful when you want to freeze some parameters without messing up the weights by SWA.")
+    parser.add_argument('--freeze_option', type=str, default='none', help='none | prev | prev_extra')
+    parser.add_argument('--reset_optimizer', type=str, default="True",
+        help='If true, will reset optimizer/scheduler regardless of if you use pretrained model or not')
+    parser.add_argument("--reset_output_layers", type=str, default="False")
+    parser.add_argument("--reset_scale_shift", type=str, default="False")
+    parser.add_argument("--reset_ptn", action="append", type=str, default=[])
+    parser.add_argument("--ft_lr_factor", type=float, default=None)
+    parser.add_argument("--normal_lr_ptn", action="append", 
+        help="parameter names that use normal learning rate. Others are reduced by ft_lr_factor")
+    parser.add_argument("--lower_lr_ptn", action="append", 
+        help="parameter names that lower normal learning rate. Exclusive with normal_lr_ptn")
+    parser.add_argument("--mdn_freeze_bn", action="store_true", help="Freeze the BatchNorm in MDN for proper transfer learning behaviour.")
+    # Training: controls
+    parser.add_argument('--num_epochs', type=int)
+    parser.add_argument('--test_interval', type=str, help="DONT USE! For compatibility only, no longer used.")
+    parser.add_argument('--early_stop', type=int, default=-1, help="early stopping, set to -1 to disable")
+    parser.add_argument("--stop_low_lr", action="store_true")
+    # Training: muti-gpu
+    parser.add_argument("--local_rank", type=int, default=0)
+    # Validation
+    parser.add_argument("--val_pair_prob_dist_coe", default=None, type=str, help="regularize pair MDN prob by pair distance: inverse | inverse_square")
+    parser.add_argument("--hist_pp_intra_mdn", action="store_true")
+    parser.add_argument("--eval_per_step", type=int, default=None)
+    parser.add_argument("--nmdn_eval", action="store_true", help="Use NMDN score as evaluation metric")
+    #----------------------------------------------------------------------------------------------#
+
+    #----------------------------------------Data Arguments----------------------------------------#
+    # Training/Validation
+    parser.add_argument('--data_provider', type=str)
+    parser.add_argument("--dataset_name", type=str, default=None, help="The PYG file of the dataset")
+    parser.add_argument("--dataset_names", type=str, action="append", help="additional PyG files to collate")
+    parser.add_argument("--split", type=str, default=None, help="The split file of the dataset")
+    parser.add_argument("--diffdock_nmdn_result", type=str, default=None, action="append", 
+                        help="Use NMDN score to select input geometries for training.")
+    parser.add_argument("--diffdock_confidence", action="store_true", help="Use diffdock-confidence score to select input geometries. overwrites --diffdock_nmdn_result")
+    parser.add_argument("--valid_size", type=int, default=None, help="Validation size")
+    parser.add_argument("--split_seed", type=int, default=2333, help="Seed for random splitting.")
+    parser.add_argument('--data_root', type=str, default="../dataProviders/data")
+    parser.add_argument('--remove_atom_ids', type=int, default=[], action="append", help='remove atoms from dataset')
+    parser.add_argument("--add_sqf", type=str, action="append", default=[])
+    parser.add_argument("--no_cut_protein", action="store_true")
+    parser.add_argument("--cutoffs")
+    parser.add_argument("--pl_cutoff", default=None, type=float)
+    parser.add_argument("--proc_in_gpu", action="store_true",
+        help="preprocess (distance matrix and edge calculation) in gpu. multiple workers does not work in this way so num_workers will be set to 0")
+    parser.add_argument("--prot_embedding_root", default=None)
+    parser.add_argument("--prot_embedding_roots", action="append", help="additional protein embeddings")
+    parser.add_argument("--prot_embed_use_chunks", action="store_true",
+        help="Prot embedding uses chunks behaviour: instead of one protein one file, use thousands of protein per file")
+    parser.add_argument("--prot_info_ds", default=None, help="Use a separate dataset to store protein information (coordinates, PP bonds, etc...)")
+    parser.add_argument("--atom_prop_ds", default=None, help="Use a separate dataset to store atom property for aux task or delta learning.")
+    parser.add_argument("--cache_bonds", action="store_true", help="Cache bonds to avoid recomputatiob. It will comsume more memory.")
+    parser.add_argument("--rmsd_csv", default=None, type=str, help="RMSD information")
+    parser.add_argument("--rmsd_expansion", default=None, type=str, help="Expand RMSD similar to RBF.")
+    parser.add_argument("--debug_mode_n_train", default=1000, type=int)
+    parser.add_argument("--debug_mode_n_val", default=100, type=int)
+    # Test
+    parser.add_argument("--test_name", type=str, default=None, help="Specify the external test set.")
+    parser.add_argument("--test_set", default=None)
+    parser.add_argument("--proc_lit_pcba", action="store_true")
+    # Dataloader
+    parser.add_argument('--batch_size', type=int)
+    parser.add_argument("--dynamic_batch", action="store_true")
+    parser.add_argument("--dynamic_batch_max_num", type=int, default=None)
+    parser.add_argument('--valid_batch_size', type=int)
+    parser.add_argument("--over_sample", action="store_true")
+    # KANO DS
+    parser.add_argument("--kano_ds", default=None, type=str, help="pickle file saving all kano processed data set.")
+    # Precomputed Atom/Mol Prop
+    parser.add_argument("--lig_identifier_src", default="ligand_file", type=str, help="Names to choose as unique identifier")
+    parser.add_argument("--lig_identifier_dst", default="ligand_file", type=str, help="Names to choose as unique identifier")
+    parser.add_argument("--precomputed_mol_prop", action="store_true")
+    # Precomputed LinF9 score
+    parser.add_argument("--linf9_csv", default=None, type=str, help="RMSD information")
+    #----------------------------------------------------------------------------------------------#
+
+    #----------------------------------------Misc Arguments----------------------------------------#
+    parser.add_argument('--comment', type=str, default=None)
+    parser.add_argument('--debug_mode', type=str, default="False")
+    parser.add_argument("--time_debug", type=str, default="False")
+    parser.add_argument("--mem_debug", type=str, default="False")
+    parser.add_argument("--chk", type=str, default=None)
+    parser.add_argument('--log_file_name', type=str, default="training.log")
+    parser.add_argument('--folder_prefix', type=str)
+    parser.add_argument('--config_name', type=str, default='config.txt')
+    parser.add_argument('--edge_version', type=str, help="voronoi | cutoff")
+    parser.add_argument('--cutoff', type=float, default=10.)
+    parser.add_argument('--boundary_factor', type=float, default=100.)
+    parser.add_argument('--frag9_train_size', type=int, help="solely used for training curve")
+    parser.add_argument('--frag20_train_size', type=int, help="solely used for training curve")
+    parser.add_argument("--legacy_exps", action="store_true")
+    parser.add_argument("--mdn2pkd_model", type=str, default=None, choices=["xgb", "rf", "linear"])
+    parser.add_argument("--mdn_embed_type", default=None, type=str, choices=["nll", "prob"])
+    parser.add_argument("--rmsd_threshold", type=float, default=None, 
+        help="Predict if the structure is within a RMSD cutoff. It is used to train a DiffDock-like confidence model.")
+    parser.add_argument("--mem", type=int, default=55, help="Only be parsed by smart_job_submit.py")
+    #----------------------------------------------------------------------------------------------#
+    return parser
+
+
+# updated evidential regression loss
+def evidential_loss_new(mu, v, alpha, beta, targets, lam=1, epsilon=1e-4):
+    """
+    Adapted from https://pubs.acs.org/doi/10.1021/acscentsci.1c00546
+    Use Deep Evidential Regression negative log likelihood loss + evidential
+        regularizer
+
+    :mu: pred mean parameter for NIG
+    :v: pred lam parameter for NIG
+    :alpha: predicted parameter for NIG
+    :beta: Predicted parmaeter for NIG
+    :targets: Outputs to predict
+
+    :return: Loss
+    """
+    # Calculate NLL loss
+    twoBlambda = 2 * beta * (1 + v)
+    nll = 0.5 * torch.log(np.pi / v) \
+          - alpha * torch.log(twoBlambda) \
+          + (alpha + 0.5) * torch.log(v * (targets - mu) ** 2 + twoBlambda) \
+          + torch.lgamma(alpha) \
+          - torch.lgamma(alpha + 0.5)
+
+    L_NLL = nll
+
+    # Calculate regularizer based on absolute error of prediction
+    error = torch.abs((targets - mu))
+    reg = error * (2 * v + alpha)
+    L_REG = reg
+
+    # Loss = L_NLL + L_REG
+    # TODO If we want to optimize the dual- of the objective use the line below:
+    loss = L_NLL + lam * (L_REG - epsilon)
+
+    return loss
+
+
 def remove_handler(log=None):
     if log is None:
         log = logging.getLogger()
@@ -727,7 +1012,7 @@ def fix_model_keys(state_dict):
     return tmp
 
 
-def process_state_dict(state_dict: OrderedDict, cfg: Config, logger, is_main=True):
+def process_state_dict(state_dict: OrderedDict, config_dict: dict, logger, is_main=True):
     # this happens when loading checkpoints for SphereNet.
     # check https://github.com/divelab/DIG_storage/tree/main/3dgraph/qm9
     if "model_state_dict" in state_dict:
@@ -737,18 +1022,23 @@ def process_state_dict(state_dict: OrderedDict, cfg: Config, logger, is_main=Tru
             new_state_dict["main_module_list.0." + key] = og_state_dict[key]
         state_dict = new_state_dict
 
-    model_cfg: ModelConfig = cfg.model
+    if config_dict["chk"]:
+        if config_dict["reset_output_layers"]:
+            logger.warn("WARNING: You are training from a checkpoint, you cannot reset output layers.")
+        if config_dict["reset_scale_shift"]:
+            logger.warn("WARNING: You are training from a checkpoint, you cannot reset scale or shift.")
+        return state_dict
 
-    if model_cfg["reset_output_layers"] or model_cfg["reset_scale_shift"]:
+    if config_dict["reset_output_layers"] or config_dict["reset_scale_shift"]:
         # OrderedDict is immutable so I have to make a copy
         new_state_dict = OrderedDict()
         shift_reg = re.compile(r"shift.*")
         scale_reg = re.compile(r"scale.*")
 
         reset_list = []
-        for ptn in model_cfg["reset_ptn"]:
+        for ptn in config_dict["reset_ptn"]:
             reset_list.append(re.compile(ptn))
-        if model_cfg["reset_output_layers"]:
+        if config_dict["reset_output_layers"]:
             logger.info("reset output layers...")
             # output layer for PhysNet
             reset_list.append(re.compile(r"main_module_list.*\.output\.lin\..*"))
@@ -757,7 +1047,7 @@ def process_state_dict(state_dict: OrderedDict, cfg: Config, logger, is_main=Tru
             # output layer for SphereNet
             reset_list.append(re.compile(r"main_module_list\..\.init_v\.lin\.weight"))
             reset_list.append(re.compile(r"main_module_list\..\.update_vs\..\.lin\.weight"))
-        if model_cfg["reset_scale_shift"]:
+        if config_dict["reset_scale_shift"]:
             logger.info("reset scale and shift...")
             reset_list.append(shift_reg)
             reset_list.append(scale_reg)
@@ -903,4 +1193,19 @@ def time_limit(seconds):
         signal.alarm(0)
 
 if __name__ == '__main__':
-    pass
+    dummy_input = torch.rand(32, 160).double().cuda()
+    dummy_model = torch.nn.Linear(160, 4).double().cuda()
+    dummy_input = dummy_model(dummy_input)
+    means, log_lambdas, log_alphas, log_betas = torch.split(dummy_input, dummy_input.shape[-1] // 4, dim=-1)
+    soft_plus = torch.nn.Softplus()
+    min_val = 1e-6
+    lambdas = soft_plus(log_lambdas) + min_val
+    # add 1 for numerical contraints of Gamma function
+    alphas = soft_plus(log_alphas) + min_val + 1
+    betas = soft_plus(log_betas) + min_val
+    evi_cal_dict = {"mu": means, "v": lambdas, "alpha": alphas, "beta": betas}
+    prop_pred = means
+    evi_cal_dict["targets"] = torch.rand(32, 1).double().cuda()
+    loss = evidential_loss_new(**evi_cal_dict).sum()
+    loss.backward()
+    print("finished")
