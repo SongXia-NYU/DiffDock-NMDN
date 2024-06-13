@@ -27,9 +27,6 @@ from utils.eval.predict import EnsPredictor
 from utils.eval.tester import Tester
 from utils.rmsd import symmetry_rmsd_from_mols
 
-prot = "data/1e66_protein.pdb"
-ligs = glob("data/1e66_1a30/rank*_confidence*.sdf")
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--prot", type=str)
 parser.add_argument("--ligs", type=str, nargs="+")
