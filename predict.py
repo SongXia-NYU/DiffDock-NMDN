@@ -78,6 +78,7 @@ prot_embed = esm_calculator.embed_from_seq(seq).squeeze(0)[1: -1, :].float()
 print("Running NMDN model...")
 tester = Tester("./data/exp_pl_534_run_2024-01-22_211045__480688")
 tester.cfg.no_pkd_score = nmdn_only
+tester.cfg.model.kano.kano_ckpt = None
 model = tester.model
 model.eval()
 collate_fn = Collater(None, None)
