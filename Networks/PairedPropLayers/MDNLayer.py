@@ -232,27 +232,7 @@ class ProtDimRecorder:
 
 prot_dim_recorder = ProtDimRecorder()
 def get_prot_dim(cfg: Config, want_original=False):
-    # ESM-Gearnet protein embedding.
-    if "ESMGearnet" in cfg.model.modules.split():
-        return 4352
-    # if we do not use pre-computed protein embedding, protein dimension is the same as n_feature
-    if (cfg.data.pre_computed.prot_embedding_root is None):
-        return cfg.model.n_feature
-    # assert we are accessing the un-transformed protein embedding
-    if want_original:
-        assert prot_dim_recorder.overwrite_count == 0, vars(prot_dim_recorder)
-    
-    # get external protein dimension in a lazy way. i.e., only run when needed.
-    if prot_dim_recorder.prot_dim is not None:
-        return prot_dim_recorder.prot_dim
-    
-    example_pth = glob(osp.join(cfg.data.pre_computed.prot_embedding_root[0], "*.pth"))[1]
-    example_d = torch.load(example_pth, map_location=get_device())
-    if isinstance(example_d, dict):
-        key = list(example_d.keys())[0]
-        example_d = example_d[key]
-    prot_dim_recorder.prot_dim = example_d.shape[-1]
-    return prot_dim_recorder.prot_dim
+    return 1280
 
 # it is overwritten only when there is a protein embedding transformer layer.
 def overwrite_prot_dim(config_dict, val):
