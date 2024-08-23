@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import pearsonr, gaussian_kde, spearmanr, kendalltau
 from sklearn.linear_model import LinearRegression
 from tqdm import tqdm
+from omegaconf import OmegaConf
 
 from utils.LossFn import pKd2deltaG
 from utils.eval.TestedFolderReader import TestedFolderReader
@@ -36,7 +37,8 @@ class CasfScoreCalculator(TrainedFolder):
     def __init__(self, folder_name, cfg: dict):
         super().__init__(folder_name)
         self.folder_name = folder_name
-        self.cfg: dict = cfg
+        for key in cfg:
+            OmegaConf.update(self.cfg, key, cfg[key], force_add=True)
         self.ref = cfg["ref"]
 
         self._docking_test_folder = None

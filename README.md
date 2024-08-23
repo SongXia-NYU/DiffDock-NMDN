@@ -23,6 +23,9 @@ pip install omegaconf
 pip install ase
 pip install dscribe
 pip install MDAnalysis
+pip install tensorboardX
+pip install meeko
+pip install Unidecode
 # for python==3.8
 pip install gsd==1.9.3
 pip install MDAnalysis

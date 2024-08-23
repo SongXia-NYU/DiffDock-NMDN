@@ -1,6 +1,21 @@
 from glob import glob
+from omegaconf import DictConfig, OmegaConf
 import yaml
+import argparse
 from utils.configs import schema
+
+def get_diff(conf, default_conf):
+    diff = {}
+    for key in conf:
+        if key not in default_conf:
+            diff[key] = conf[key]
+        elif isinstance(conf[key], DictConfig) and isinstance(default_conf[key], DictConfig):
+            nested_diff = get_diff(conf[key], default_conf[key])
+            if nested_diff:
+                diff[key] = nested_diff
+        elif conf[key] != default_conf[key]:
+            diff[key] = conf[key]
+    return OmegaConf.create(diff)
 
 def old2new(old_cfg_file: str):
     old_dict = {}
@@ -77,9 +92,18 @@ def old2new(old_cfg_file: str):
                 if subsubkey not in out_dict["data"]:
                     out_dict["data"][subsubkey] = {}
                 out_dict["data"][subsubkey][key] = old_dict[key]
-    outdir = old_cfg_file.replace(".txt", ".yaml")
-    with open(outdir, "w") as f:
+    out_yaml = old_cfg_file.replace(".txt", ".yaml")
+    with open(out_yaml, "w") as f:
         yaml.safe_dump(out_dict, f)
+    config = OmegaConf.load(out_yaml)
+    config = OmegaConf.merge(schema, config)
+    config_clean = get_diff(config, schema)
+    with open(out_yaml, "w") as f:
+        f.write(OmegaConf.to_yaml(config_clean, sort_keys=False))
 
-for cfg_name in glob("/scratch/sx801/scripts/physnet-dimenet1/MartiniDock/pretrained/exp_frag20sol_012_active_ALL_2022-05-01_112820/exp_*_cycle_-1_*/config-*.txt"):
+parser = argparse.ArgumentParser()
+parser.add_argument("cfgs", nargs="+")
+args = parser.parse_args()
+cfgs = args.cfgs
+for cfg_name in cfgs:
     old2new(cfg_name)

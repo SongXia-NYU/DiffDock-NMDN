@@ -10,11 +10,13 @@ import numpy as np
 from scipy.stats import pearsonr
 import torch
 import subprocess
+from omegaconf import OmegaConf
 
 from utils.eval.TestedFolderReader import TestedFolderReader
 from utils.eval.tester import Tester
 from utils.scores.casf_scores import CASF_ROOT, RANKING_CSV, CasfScoreCalculator, calc_screening_score, get_rank, plot_scatter_info
 from utils.utils_functions import lazy_property, option_solver
+from utils.configs import read_config_file
 
 
 class CASFBlindScreenScore(CasfScoreCalculator):
@@ -172,10 +174,17 @@ class CASFBlindDockScore(CasfScoreCalculator):
         # calculate detailed docking scores like in the DiffDock work
         score_df = score_df.set_index("file_handle").join(self.rmsd_info_df, how="outer")
         score_df["rank"] = score_df.index.map(lambda s: int(s.split("srcrank")[-1]))
-        out_df = self.diffdock_detailed_docking_power(score_df)
-        
-        out_df.to_csv(osp.join(self.save_root, "docking_detailed.csv"))
-        out_df.to_excel(osp.join(self.save_root, "docking_detailed.xlsx"), float_format="%.2f")
+        n_sel = 10
+        if n_sel is not None:
+            np.random.seed(54)
+            sel_rank = np.random.permutation(np.arange(1, 101))[:n_sel]
+            score_df_sel = score_df.reset_index().set_index("rank").loc[sel_rank].reset_index().set_index("file_handle")
+        out_df = self.diffdock_detailed_docking_power(score_df_sel)
+       
+        n_sel = "" if n_sel is None else n_sel
+        out_df.to_csv(osp.join(self.save_root, f"docking_detailed{n_sel}.csv"))
+        out_df.to_excel(osp.join(self.save_root, f"docking_detailed{n_sel}.xlsx"), float_format="%.2f")
+        print(out_df)
     
     @staticmethod
     def diffdock_detailed_docking_power(score_df: pd.DataFrame):
@@ -272,14 +281,15 @@ class CASFBlindDockScore(CasfScoreCalculator):
     
     @lazy_property
     def docking_ds_cfg(self) -> dict:
-        test_ds_args: dict = Tester.parse_explicit_ds_args(self.cfg["docking_config"])
+        test_ds_args: dict = read_config_file(self.cfg["docking_config"])
+        test_ds_args = OmegaConf.merge(self.cfg, test_ds_args)
         return test_ds_args
     
     @lazy_property
     def rmsd_info_df(self):
         test_ds_args: dict = self.docking_ds_cfg
-        data_root: str = test_ds_args["data_root"]
-        ds_name = option_solver(test_ds_args["data_provider"])["dataset_name"].split(".pyg")[0]
+        data_root: str = test_ds_args.data.data_root
+        ds_name = option_solver(test_ds_args.data.data_provider)["dataset_name"].split(".pyg")[0]
         rmsd_info_csv: str = osp.join(osp.dirname(data_root), f"{ds_name}.rmsd2crystal.csv")
         rmsd_info_df: pd.DataFrame = pd.read_csv(rmsd_info_csv).set_index("file_handle")
         return rmsd_info_df

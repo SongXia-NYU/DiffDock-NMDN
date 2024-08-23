@@ -1,5 +1,5 @@
 from typing import List, Tuple, Optional
-from geometry_processors.pl_dataset.ConfReader import ConfReader, PDBStreamReader, SDFReader, Mol2Reader, PDBReader, MolReader, PDBLegacyReader, CGMartiniPDBReader
+from geometry_processors.pl_dataset.ConfReader import ConfReader, PDBQTReader, PDBStreamReader, SDFReader, Mol2Reader, PDBReader, MolReader, PDBLegacyReader, CGMartiniPDBReader
 from geometry_processors.pl_dataset.csv2input_list import MPInfo
 
 import numpy as np
@@ -37,6 +37,9 @@ class ConfReaderFactory:
         elif self.info.ligand_pdb is not None:
             ligand_reader = PDBReader(self.info.ligand_pdb, **reader_args)
             ligand_file = self.info.ligand_pdb
+        elif self.info.ligand_pdbqt is not None:
+            ligand_reader = PDBQTReader(self.info.ligand_pdbqt, **reader_args)
+            ligand_file = self.info.ligand_pdbqt
         else:
             assert self.info.mol is not None
             ligand_reader = MolReader(self.info.mol, **reader_args)

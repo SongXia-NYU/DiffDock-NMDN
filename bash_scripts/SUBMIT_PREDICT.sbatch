@@ -10,9 +10,9 @@
 #SBATCH --mail-user=songxia23@gmail.com
 
 singularity exec --nv \
-            --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.sqf \
+            --overlay /scratch/sx801/singularity-envs/ocp-py39-50G-10M.ext3:ro \
             --overlay /vast/sx801/geometries/PDBBind2020_OG.sqf \
             --overlay /vast/sx801/geometries/CASF-2016-cyang.sqf \
             /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif \
             bash -c "source /ext3/env.sh; export PYTHONPATH=.:/scratch/sx801/scripts/Mol3DGenerator; \
-            python $1 predict.py "
+            python predict_eric.py --array_id $1"

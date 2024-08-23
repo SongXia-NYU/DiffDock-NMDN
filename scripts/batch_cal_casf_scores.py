@@ -1,7 +1,7 @@
 # Do NOT delete these two unused imports
 # They have to be imported before torchdrug for some reason, otherwise they will fail
-import torchvision
-from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
+# import torchvision
+# from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
 
 import argparse
 import os.path as osp

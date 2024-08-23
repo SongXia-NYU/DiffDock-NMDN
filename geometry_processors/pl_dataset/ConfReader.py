@@ -461,6 +461,22 @@ class Mol2Reader(ConfReader):
         if self._mol is None:
             self._mol = MolFromMol2File(self.mol2_file, removeHs=False, sanitize=False, cleanupSubstructures=False)
         return self._mol
+    
+class PDBQTReader(ConfReader):
+    def __init__(self, pdbqt_file, **kwargs):
+        super().__init__(**kwargs)
+        self.pdbqt_file = pdbqt_file
+        self._mol = None
+
+    @property
+    def mol(self):
+        from meeko import PDBQTMolecule
+        from meeko import RDKitMolCreate
+        if self._mol is None:
+            pdbqt_mol = PDBQTMolecule.from_file(self.pdbqt_file, skip_typing=True)
+            rdkitmol_list = RDKitMolCreate.from_pdbqt_mol(pdbqt_mol)
+            self._mol = rdkitmol_list[0]
+        return self._mol
 
 
 if __name__ == '__main__':

@@ -1173,8 +1173,8 @@ class DistCoeCalculator:
 
 
 def torchdrug_imports():
-    from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
     return
+    from ocpmodels.models.equiformer_v2.edge_rot_mat import InitEdgeRotError
     # They have to be imported before torchdrug for some reason, otherwise they will fail
     import torchvision
 
