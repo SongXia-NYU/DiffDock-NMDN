@@ -27,3 +27,5 @@ SUBMIT_TRAIN-*.sbatch
 subjob.pbs
 *.csv
 SUBMIT_PRED.sbatch
+bash_scripts/SUBMIT_PREDICT_ERIC.sbatch
+predict_eric.py
