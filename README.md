@@ -60,3 +60,6 @@ You will get prediction of the NMDN score and pKd score for each protein-ligand 
 ```bash
 python predict.py --nmdn_only --prot PROTEIN.pdb --ligs LIG1.sdf LIG2.sdf ...
 ```
+
+# License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
